@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TXT 檔案轉表格</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定義樣式，覆蓋或補充 Tailwind */
+        body {
+            font-family: 'Inter', sans-serif; /* 使用 Inter 字體 */
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px; /* 圓角 */
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 900px; /* 調整最大寬度 */
+            margin-top: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 700; /* 加粗標題 */
+        }
+        .input-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 10px; /* 圓角 */
+            background-color: #fdfdfd;
+        }
+        .file-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .file-input-group label {
+            margin-bottom: 8px;
+            font-weight: 600; /* 加粗標籤 */
+            color: #555;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px; /* 圓角 */
+            background-color: #fff;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+        input[type="file"]::file-selector-button {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px; /* 圓角 */
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+        button {
+            padding: 12px 25px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px; /* 圓角 */
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            align-self: center;
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.2);
+        }
+        button:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(40, 167, 69, 0.3);
+        }
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(40, 167, 69, 0.2);
+        }
+        .results-section {
+            margin-top: 30px;
+        }
+        .results-section h2 {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px; /* 標題和計數之間的間距 */
+        }
+        .record-count {
+            font-size: 0.8em;
+            color: #6c757d;
+            font-weight: normal;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            background-color: #fff;
+            border-radius: 8px; /* 圓角 */
+            overflow: hidden; /* 確保圓角生效 */
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        table th {
+            background-color: #e9ecef;
+            color: #495057;
+            font-weight: 600;
+        }
+        table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        table tbody tr:hover {
+            background-color: #e2f4f8;
+        }
+        .no-data-message {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        /* 響應式調整 */
+        @media (max-width: 768px) {
+            .input-section {
+                flex-direction: column;
+            }
+            .container {
+                padding: 20px;
+                margin-top: 10px;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+            table th, table td {
+                padding: 8px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TXT 檔案轉表格顯示</h1>
+
+        <div class="input-section">
+            <div class="file-input-group">
+                <label for="txtFile">上傳 TXT 申報對帳檔:</label>
+                <input type="file" id="txtFile" accept=".txt">
+            </div>
+            <button id="parseAndDisplayBtn">解析並顯示資料</button>
+        </div>
+
+        <div class="results-section">
+            <h2>解析結果 <span id="recordCount" class="record-count">(0 筆資料)</span></h2>
+            <table id="parsedDataTable">
+                <thead>
+                    <tr>
+                        <th>病歷號</th>
+                        <th>姓名</th>
+                        <th>出生日期</th>
+                        <th>檢驗日期</th>
+                        <th>申報金額</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 解析後的資料將插入此處 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const txtFileInput = document.getElementById('txtFile');
+            const parseAndDisplayBtn = document.getElementById('parseAndDisplayBtn');
+            const parsedDataTableBody = document.querySelector('#parsedDataTable tbody');
+            const recordCountSpan = document.getElementById('recordCount'); // 獲取顯示筆數的元素
+
+            // 為解析並顯示按鈕添加點擊事件監聽器
+            parseAndDisplayBtn.addEventListener('click', parseAndDisplayTxtFile);
+
+            /**
+             * 判斷字符是否為全形字符。
+             * 全形字符通常在終端或固定寬度字體中佔用兩個半形字符的空間。
+             * @param {string} char - 要判斷的字符。
+             * @returns {boolean} 如果是全形字符則返回 true，否則返回 false。
+             */
+            function isFullWidth(char) {
+                const code = char.charCodeAt(0);
+                // 判斷常見的全形字符範圍，例如中日韓文字符
+                return code > 255; // 中文、日文等視為全形字
+            }
+
+            /**
+             * 為 String 原型添加一個方法，根據視覺寬度截取字串。
+             * 全形字符佔用 2 個視覺寬度，半形字符佔用 1 個視覺寬度。
+             * @param {number} startVisual - 視覺起始位置（從 0 開始）。
+             * @param {number} lengthVisual - 要截取的視覺長度。
+             * @returns {string} 截取後的字串。
+             */
+            String.prototype.substrByVisualWidth = function(startVisual, lengthVisual) {
+                let result = '';
+                let currentVisualWidth = 0;
+                let charIndex = 0;
+                const str = this;
+
+                while (charIndex < str.length) {
+                    const char = str[charIndex];
+                    const charWidth = isFullWidth(char) ? 2 : 1;
+
+                    // 如果當前字符的視覺寬度加上已累積的寬度超過了目標結束位置，則停止
+                    if (currentVisualWidth + charWidth > startVisual + lengthVisual) {
+                        break;
+                    }
+
+                    // 如果已累積的寬度達到或超過起始位置，則將字符添加到結果中
+                    if (currentVisualWidth >= startVisual) {
+                        result += char;
+                    }
+
+                    currentVisualWidth += charWidth;
+                    charIndex++;
+                }
+                return result;
+            };
+
+            /**
+             * 讀取 TXT 檔案內容。
+             * @param {File} file - TXT 檔案物件。
+             * @returns {Promise<string>} 檔案內容的 Promise。
+             */
+            function readTxtFile(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => resolve(event.target.result);
+                    reader.onerror = (error) => reject(error);
+                    // 假設 TXT 檔使用 BIG5 編碼
+                    reader.readAsText(file, 'BIG5');
+                });
+            }
+
+            /**
+             * 解析 TXT 檔案的資料。
+             * 根據預定義的視覺寬度位置截取 病歷號、姓名、申報金額。
+             * @param {string} data - TXT 檔案的原始字串內容。
+             * @returns {Array<Object>} 解析後的資料陣列。
+             */
+            function parseTxtData(data) {
+                const lines = data.split('\r\n'); // 根據換行符分割行
+                const records = [];
+                let dataStarted = false; // 標記資料區是否開始
+
+                // 定義各欄位的視覺寬度起始位置和長度
+                // 這些值是根據您提供的檔案片段估計的，如果實際檔案有差異，請調整這裡
+                const COL_MEDICAL_RECORD_ID_START = 0;   // 病歷號視覺起始位置 (從行首開始算，包含前面的空格)
+                const COL_MEDICAL_RECORD_ID_LENGTH = 8; // 病歷號視覺長度 (例如 "  891-43")
+
+                const COL_NAME_START = 9;               // 姓名視覺起始位置
+                const COL_NAME_LENGTH = 8;               // 姓名視覺長度 (例如 "劉美貞")
+
+                const COL_BIRTH_DATE_START = 33;         // 出生日期視覺起始位置 (例如 "47.02.22")
+                const COL_BIRTH_DATE_LENGTH = 8;         // 出生日期視覺長度
+
+                const COL_INSPECTION_DATE_START = 91;    // 檢驗日期視覺起始位置 (例如 "114.06.02")
+                const COL_INSPECTION_DATE_LENGTH = 9;    // 檢驗日期視覺長度
+
+                const COL_DECLARED_AMOUNT_START = 110;   // 申報金額視覺起始位置 (根據之前的計算)
+                const COL_DECLARED_AMOUNT_LENGTH = 5;    // 申報金額視覺長度 (例如 "2130")
+
+
+                for (const line of lines) {
+                    // 精確識別標題行，確保包含所有關鍵字
+                    if (line.includes('病 歷 號') && line.includes('姓    名') && line.includes('金額')) {
+                        dataStarted = true; // 標記資料區開始
+                        continue; // 跳過標題行
+                    }
+                    // 跳過非資料行或空行，包括分隔線、頁次、診所名稱等
+                    if (!dataStarted || line.trim() === '' || line.includes('頁次:') ||
+                        line.includes('─────────────') || line.includes('══════════════════════════════════════════════════════════') ||
+                        line.includes('──── ────')) {
+                        continue;
+                    }
+
+                    // 檢查是否是診所名稱行 (例如 "謝坤川診所")
+                    // 這裡假設真實的資料行，病歷號碼部分一定會有數字
+                    const potentialMedicalRecordId = line.substrByVisualWidth(COL_MEDICAL_RECORD_ID_START, COL_MEDICAL_RECORD_ID_LENGTH).trim();
+                    if (!/\d/.test(potentialMedicalRecordId) && potentialMedicalRecordId.length > 0 && potentialMedicalRecordId.length < 10) {
+                         console.warn('跳過可能為診所名稱或非資料行:', line);
+                         continue; // 跳過看起來不像資料行的行
+                    }
+
+                    try {
+                        // 使用定義好的視覺寬度截取字串
+                        const medicalRecordId = line.substrByVisualWidth(COL_MEDICAL_RECORD_ID_START, COL_MEDICAL_RECORD_ID_LENGTH).trim();
+                        const name = line.substrByVisualWidth(COL_NAME_START, COL_NAME_LENGTH).trim();
+                        const birthDate = line.substrByVisualWidth(COL_BIRTH_DATE_START, COL_BIRTH_DATE_LENGTH).trim();
+                        const inspectionDate = line.substrByVisualWidth(COL_INSPECTION_DATE_START, COL_INSPECTION_DATE_LENGTH).trim();
+                        const declaredAmount = parseInt(line.substrByVisualWidth(COL_DECLARED_AMOUNT_START, COL_DECLARED_AMOUNT_LENGTH).trim(), 10); // 使用 substrByVisualWidth 解析金額
+
+                        // 只有當成功解析到有效的病歷號、姓名、出生日期、檢驗日期和金額時才添加記錄
+                        if (medicalRecordId && name && birthDate && inspectionDate && !isNaN(declaredAmount)) {
+                            records.push({
+                                medicalRecordId: medicalRecordId,
+                                name: name,
+                                birthDate: birthDate,
+                                inspectionDate: inspectionDate,
+                                declaredAmount: declaredAmount
+                            });
+                        } else {
+                             console.warn('無法解析 TXT 行中的關鍵資料 (病歷號, 姓名, 出生日期, 檢驗日期 或 金額)，跳過此行:', line);
+                        }
+                    } catch (e) {
+                        console.warn('解析 TXT 行時發生錯誤:', line, e);
+                    }
+                }
+                return records;
+            }
+
+            /**
+             * 解析並顯示 TXT 檔案的資料。
+             */
+            async function parseAndDisplayTxtFile() {
+                const txtFile = txtFileInput.files[0];
+
+                if (!txtFile) {
+                    showMessageBox('請先上傳 TXT 檔案。');
+                    return;
+                }
+
+                clearTable(); // 清除舊的表格內容
+
+                try {
+                    const txtData = await readTxtFile(txtFile);
+                    const parsedRecords = parseTxtData(txtData); // 解析 TXT 檔案 
+
+                    displayParsedRecordsInTable(parsedRecords); // 將解析結果顯示在表格中
+
+                    if (parsedRecords.length > 0) {
+                        showMessageBox('TXT 檔案解析完成，資料已顯示在表格中。');
+                    } else {
+                        showMessageBox('TXT 檔案已解析，但未找到有效資料。請檢查檔案格式。');
+                    }
+
+                } catch (error) {
+                    console.error('檔案處理錯誤:', error);
+                    showMessageBox('檔案處理失敗，請檢查檔案格式或編碼是否正確。錯誤訊息: ' + error.message);
+                }
+            }
+
+            /**
+             * 將解析後的記錄顯示在表格中。
+             * @param {Array<Object>} records - 解析後的資料陣列。
+             */
+            function displayParsedRecordsInTable(records) {
+                // 清除舊的表格內容
+                parsedDataTableBody.innerHTML = '';
+                // 更新資料筆數顯示
+                recordCountSpan.textContent = `(${records.length} 筆資料)`;
+
+                if (records.length === 0) {
+                    const row = parsedDataTableBody.insertRow();
+                    const cell = row.insertCell();
+                    cell.colSpan = 5; // 跨五列 (病歷號, 姓名, 出生日期, 檢驗日期, 申報金額)
+                    cell.textContent = '未找到可顯示的資料。';
+                    cell.classList.add('no-data-message'); // 添加樣式類
+                    return;
+                }
+
+                records.forEach(record => {
+                    const row = parsedDataTableBody.insertRow();
+                    row.insertCell().textContent = record.medicalRecordId;
+                    row.insertCell().textContent = record.name;
+                    row.insertCell().textContent = record.birthDate;
+                    row.insertCell().textContent = record.inspectionDate;
+                    row.insertCell().textContent = record.declaredAmount;
+                });
+            }
+
+            /**
+             * 清除表格內容。
+             */
+            function clearTable() {
+                parsedDataTableBody.innerHTML = '';
+                recordCountSpan.textContent = '(0 筆資料)'; // 清除時重置計數
+            }
+
+            /**
+             * 顯示自定義訊息框。
+             * @param {string} message - 要顯示的訊息。
+             */
+            function showMessageBox(message) {
+                // 創建訊息框元素
+                const messageBox = document.createElement('div');
+                messageBox.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background-color: #333;
+                    color: white;
+                    padding: 20px 30px;
+                    border-radius: 8px;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                    z-index: 1000;
+                    font-size: 1.1em;
+                    text-align: center;
+                    opacity: 0;
+                    transition: opacity 0.3s ease-in-out;
+                    max-width: 80%;
+                `;
+                messageBox.textContent = message;
+                document.body.appendChild(messageBox);
+
+                // 漸入效果
+                setTimeout(() => {
+                    messageBox.style.opacity = '1';
+                }, 10);
+
+                // 幾秒後自動消失
+                setTimeout(() => {
+                    messageBox.style.opacity = '0';
+                    messageBox.addEventListener('transitionend', () => messageBox.remove());
+                }, 3000); // 顯示 3 秒
+            }
+        });
+    </script>
+</body>
+</html>

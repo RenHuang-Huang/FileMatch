@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel 檔案轉表格</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 SheetJS 函式庫 CDN -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        /* 自定義樣式，覆蓋或補充 Tailwind */
+        body {
+            font-family: 'Inter', sans-serif; /* 使用 Inter 字體 */
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px; /* 圓角 */
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 1000px; /* 調整最大寬度以容納更多欄位 */
+            margin-top: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 700; /* 加粗標題 */
+        }
+        .input-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 10px; /* 圓角 */
+            background-color: #fdfdfd;
+        }
+        .file-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .file-input-group label {
+            margin-bottom: 8px;
+            font-weight: 600; /* 加粗標籤 */
+            color: #555;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px; /* 圓角 */
+            background-color: #fff;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+        input[type="file"]::file-selector-button {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px; /* 圓角 */
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+        button {
+            padding: 12px 25px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px; /* 圓角 */
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            align-self: center;
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.2);
+        }
+        button:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(40, 167, 69, 0.3);
+        }
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(40, 167, 69, 0.2);
+        }
+        .results-section {
+            margin-top: 30px;
+            overflow-x: auto; /* 允許表格在小螢幕上水平滾動 */
+        }
+        .results-section h2 {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px; /* 標題和計數之間的間距 */
+        }
+        .record-count {
+            font-size: 0.8em;
+            color: #6c757d;
+            font-weight: normal;
+        }
+        table {
+            width: 100%;
+            min-width: 700px; /* 確保表格在小螢幕上不會過窄 */
+            border-collapse: collapse;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            background-color: #fff;
+            border-radius: 8px; /* 圓角 */
+            overflow: hidden; /* 確保圓角生效 */
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        table th {
+            background-color: #e9ecef;
+            color: #495057;
+            font-weight: 600;
+        }
+        table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        table tbody tr:hover {
+            background-color: #e2f4f8;
+        }
+        .no-data-message {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        /* 響應式調整 */
+        @media (max-width: 768px) {
+            .input-section {
+                flex-direction: column;
+            }
+            .container {
+                padding: 20px;
+                margin-top: 10px;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+            table th, table td {
+                padding: 8px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Excel 檔案轉表格顯示</h1>
+
+        <div class="input-section">
+            <div class="file-input-group">
+                <label for="fileInput">上傳 Excel 檔案 (.xls, .xlsx):</label>
+                <input type="file" id="fileInput" accept="application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            </div>
+            <button id="parseAndDisplayBtn">解析並顯示資料</button>
+        </div>
+
+        <div class="results-section">
+            <h2>解析結果 <span id="recordCount" class="record-count">(0 筆資料)</span></h2>
+            <table id="parsedDataTable">
+                <thead>
+                    <tr>
+                        <th>病歷號碼</th>
+                        <th>病患姓名</th>
+                        <th>生日</th>
+                        <th>檢驗日期</th>
+                        <th>打折後申報金額</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 解析後的資料將插入此處 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('fileInput');
+            const parseAndDisplayBtn = document.getElementById('parseAndDisplayBtn');
+            const parsedDataTableBody = document.querySelector('#parsedDataTable tbody');
+            const recordCountSpan = document.getElementById('recordCount'); // 獲取顯示筆數的元素
+
+            // 為解析並顯示按鈕添加點擊事件監聽器
+            parseAndDisplayBtn.addEventListener('click', parseAndDisplayFile);
+
+            /**
+             * 讀取 Excel 檔案內容為 ArrayBuffer。
+             * @param {File} file - 檔案物件。
+             * @returns {Promise<ArrayBuffer>} 檔案內容的 Promise。
+             */
+            function readFile(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => resolve(event.target.result);
+                    reader.onerror = (error) => reject(error);
+                    // Excel 檔案讀取為 ArrayBuffer
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            /**
+             * 解析 Excel 檔案的資料。
+             * @param {ArrayBuffer} fileData - Excel 檔案的 ArrayBuffer 內容。
+             * @param {string} fileName - 檔案名稱，用於判斷類型。
+             * @returns {Array<Object>} 解析後的資料陣列。
+             */
+            function parseFileData(fileData, fileName) {
+                // 直接呼叫 parseExcelData，因為此工具只處理 Excel
+                return parseExcelData(fileData);
+            }
+
+            /**
+             * 使用 SheetJS 解析 Excel 檔案的資料。
+             * @param {ArrayBuffer} data - Excel 檔案的 ArrayBuffer 內容。
+             * @returns {Array<Object>} 解析後的資料陣列。
+             */
+            function parseExcelData(data) {
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0]; // 預設讀取第一個工作表
+                const worksheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); // 讀取為陣列的陣列
+
+                const records = [];
+                let headerRow = null;
+                let headerRowIndex = -1;
+
+                // 搜尋標題行，在 Excel 數據中尋找包含所有必要欄位的行
+                for (let i = 0; i < Math.min(json.length, 20); i++) { // 檢查前20行，可調整
+                    const row = json[i];
+                    if (Array.isArray(row) &&
+                        row.some(cell => typeof cell === 'string' && cell.includes('病歷號碼')) &&
+                        row.some(cell => typeof cell === 'string' && cell.includes('病患姓名')) &&
+                        row.some(cell => typeof cell === 'string' && cell.includes('生日')) &&
+                        row.some(cell => typeof cell === 'string' && cell.includes('檢驗日期')) &&
+                        row.some(cell => typeof cell === 'string' && cell.includes('打折後申報金額'))) {
+                        headerRow = row.map(cell => typeof cell === 'string' ? cell.trim() : ''); // 清理標題
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+
+                if (!headerRow) {
+                    throw new Error('Excel 文件中找不到包含所有必要欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 打折後申報金額) 的標題行。');
+                }
+
+                // 根據欄位名稱獲取索引
+                const medicalRecordIdColIndex = headerRow.indexOf('病歷號碼');
+                const nameColIndex = headerRow.indexOf('病患姓名');
+                const birthDateColIndex = headerRow.indexOf('生日');
+                const inspectionDateColIndex = headerRow.indexOf('檢驗日期');
+                const amountColIndex = headerRow.indexOf('打折後申報金額');
+
+                // 再次檢查是否找到所有必要的欄位
+                if (medicalRecordIdColIndex === -1 || nameColIndex === -1 ||
+                    birthDateColIndex === -1 || inspectionDateColIndex === -1 ||
+                    amountColIndex === -1) {
+                    throw new Error('Excel 文件缺少必要的欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 或 打折後申報金額)。');
+                }
+
+                // 從標題行之後的資料行開始解析
+                for (let i = headerRowIndex + 1; i < json.length; i++) {
+                    const row = json[i];
+                    if (!Array.isArray(row) || row.length === 0) continue; // 跳過空行或非陣列行
+
+                    try {
+                        // 確保從 SheetJS 讀取的值轉換為字串後再trim，避免null/undefined問題
+                        const medicalRecordId = (row[medicalRecordIdColIndex] || '').toString().trim();
+                        const name = (row[nameColIndex] || '').toString().trim();
+                        const birthDate = (row[birthDateColIndex] || '').toString().trim();
+                        const inspectionDate = (row[inspectionDateColIndex] || '').toString().trim();
+                        const declaredAmount = parseInt((row[amountColIndex] || '0').toString().trim(), 10);
+
+                        if (medicalRecordId && name && birthDate && inspectionDate && !isNaN(declaredAmount)) {
+                            records.push({
+                                medicalRecordId: medicalRecordId,
+                                name: name,
+                                birthDate: birthDate,
+                                inspectionDate: inspectionDate,
+                                declaredAmount: declaredAmount
+                            });
+                        } else {
+                            console.warn('無法解析 Excel 行中的關鍵資料，跳過此行:', row);
+                        }
+                    } catch (e) {
+                        console.warn('解析 Excel 行時發生錯誤:', row, e);
+                    }
+                }
+                return records;
+            }
+
+
+            /**
+             * 解析並顯示檔案的資料。
+             */
+            async function parseAndDisplayFile() {
+                const file = fileInput.files[0];
+
+                if (!file) {
+                    showMessageBox('請先上傳 Excel 檔案。');
+                    return;
+                }
+
+                clearTable(); // 清除舊的表格內容
+
+                try {
+                    const fileData = await readFile(file);
+                    const parsedRecords = parseFileData(fileData, file.name); // 解析檔案
+
+                    displayParsedRecordsInTable(parsedRecords); // 將解析結果顯示在表格中
+
+                    if (parsedRecords.length > 0) {
+                        showMessageBox('檔案解析完成，資料已顯示在表格中。');
+                    } else {
+                        showMessageBox('檔案已解析，但未找到有效資料。請檢查檔案格式或內容。');
+                    }
+
+                } catch (error) {
+                    console.error('檔案處理錯誤:', error);
+                    showMessageBox('檔案處理失敗，請檢查檔案格式或內容是否正確。錯誤訊息: ' + error.message);
+                }
+            }
+
+            /**
+             * 將解析後的記錄顯示在表格中。
+             * @param {Array<Object>} records - 解析後的資料陣列。
+             */
+            function displayParsedRecordsInTable(records) {
+                // 清除舊的表格內容
+                parsedDataTableBody.innerHTML = '';
+                // 更新資料筆數顯示
+                recordCountSpan.textContent = `(${records.length} 筆資料)`;
+
+                if (records.length === 0) {
+                    const row = parsedDataTableBody.insertRow();
+                    const cell = row.insertCell();
+                    cell.colSpan = 5; // 跨五列 (病歷號碼, 病患姓名, 生日, 檢驗日期, 打折後申報金額)
+                    cell.textContent = '未找到可顯示的資料。';
+                    cell.classList.add('no-data-message'); // 添加樣式類
+                    return;
+                }
+
+                records.forEach(record => {
+                    const row = parsedDataTableBody.insertRow();
+                    row.insertCell().textContent = record.medicalRecordId;
+                    row.insertCell().textContent = record.name;
+                    row.insertCell().textContent = record.birthDate;
+                    row.insertCell().textContent = record.inspectionDate;
+                    row.insertCell().textContent = record.declaredAmount;
+                });
+            }
+
+            /**
+             * 清除表格內容。
+             */
+            function clearTable() {
+                parsedDataTableBody.innerHTML = '';
+                recordCountSpan.textContent = '(0 筆資料)'; // 清除時重置計數
+            }
+
+            /**
+             * 顯示自定義訊息框。
+             * @param {string} message - 要顯示的訊息。
+             */
+            function showMessageBox(message) {
+                // 創建訊息框元素
+                const messageBox = document.createElement('div');
+                messageBox.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background-color: #333;
+                    color: white;
+                    padding: 20px 30px;
+                    border-radius: 8px;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                    z-index: 1000;
+                    font-size: 1.1em;
+                    text-align: center;
+                    opacity: 0;
+                    transition: opacity 0.3s ease-in-out;
+                    max-width: 80%;
+                `;
+                messageBox.textContent = message;
+                document.body.appendChild(messageBox);
+
+                // 漸入效果
+                setTimeout(() => {
+                    messageBox.style.opacity = '1';
+                }, 10);
+
+                // 幾秒後自動消失
+                setTimeout(() => {
+                    messageBox.style.opacity = '0';
+                    messageBox.addEventListener('transitionend', () => messageBox.remove());
+                }, 3000); // 顯示 3 秒
+            }
+        });
+    </script>
+</body>
+</html>

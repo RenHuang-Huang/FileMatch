@@ -1,0 +1,342 @@
+/* 自定義樣式，覆蓋或補充 Tailwind */
+        body {
+            font-family: 'Inter', sans-serif; /* 使用 Inter 字體 */
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px; /* 圓角 */
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 1200px; /* 調整最大寬度以容納更多欄位 */
+            margin-top: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 700; /* 加粗標題 */
+        }
+        h2 {
+            color: #2c3e50;
+            text-align: left; /* 標題靠左 */
+            margin-bottom: 15px; /* 調整標題間距 */
+            font-weight: 700; /* 加粗標題 */
+            display: flex;
+            align-items: center;
+            gap: 10px; /* 標題與計數之間的間距 */
+        }
+        .record-count {
+            font-size: 0.8em;
+            color: #6c757d;
+            font-weight: normal;
+        }
+        .input-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 10px; /* 圓角 */
+            background-color: #fdfdfd;
+        }
+        .file-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .file-input-group label {
+            margin-bottom: 8px;
+            font-weight: 600; /* 加粗標籤 */
+            color: #555;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px; /* 圓角 */
+            background-color: #fff;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+        input[type="file"]::file-selector-button {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px; /* 圓角 */
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+        button {
+            padding: 12px 25px;
+            background-color: #28a745; /* 預設綠色 */
+            color: white;
+            border: none;
+            border-radius: 8px; /* 圓角 */
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease, opacity 0.3s ease;
+            align-self: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* 預設柔和陰影 */
+            opacity: 0.5; /* 預設半透明，表示不可用 */
+            cursor: not-allowed; /* 預設為禁止點擊 */
+            box-sizing: border-box; /* 確保 padding 和 border 包含在指定的長寬內 */
+        }
+        button:hover {
+            background-color: #218838; /* 懸停時綠色變深 */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15); /* 懸停時柔和陰影 */
+        }
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 亮顯按鈕的樣式 (主要比對按鈕) */
+        button#compareBtn.highlight-button { /* 精確指定ID */
+            margin-bottom: 25px; /* 增加底部間距 */
+            width: 140px !important; /* 設定固定寬度並強制應用 */
+            height: 48px !important; /* 設定固定高度並強制應用 */
+            font-size: 20px !important; /* 增加字體大小並強制應用 */
+            display: flex; /* 使用 flexbox 居中文字 */
+            justify-content: center;
+            align-items: center;
+            background-color: #1a73e8; /* Google Blue */
+            background-image: linear-gradient(to right, #1a73e8, #3c82f6); /* 藍色漸變 */
+            opacity: 1; /* 完全不透明 */
+            cursor: pointer; /* 允許點擊 */
+            box-shadow: 0 10px 30px rgba(26, 115, 232, 0.4); /* 更明顯的陰影 */
+        }
+        button#compareBtn.highlight-button:hover {
+            background-color: #1765cc; /* 懸停時顏色變深 */
+            background-image: linear-gradient(to right, #1765cc, #3367d6); /* 懸停時漸變變深 */
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(26, 115, 232, 0.5); /* 懸停時更明顯的陰影 */
+        }
+        button#compareBtn.highlight-button:active {
+            transform: translateY(0);
+            box-shadow: 0 6px 20px rgba(26, 115, 232, 0.3);
+        }
+
+        /* 檢視資料按鈕的樣式 (次要按鈕) */
+        .view-data-buttons {
+            display: flex;
+            flex-wrap: wrap; /* 允許按鈕換行 */
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .view-data-buttons button {
+            background-color: #6c757d; /* 灰色按鈕 */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* 柔和陰影 */
+            opacity: 1; /* 確保完全不透明 */
+            cursor: pointer;
+            padding: 10px 20px; /* 調整次要按鈕的內邊距 */
+            font-size: 15px; /* 調整次要按鈕的字體大小 */
+        }
+        .view-data-buttons button:hover {
+            background-color: #5a6268; /* 懸停時顏色變深 */
+            transform: translateY(-1px); /* 輕微上移 */
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        }
+        .view-data-buttons button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 表格樣式 */
+        .results-section {
+            margin-top: 30px;
+            overflow-x: auto; /* 允許表格在小螢幕上水平滾動 */
+        }
+        table {
+            width: 100%;
+            min-width: 800px; /* 確保表格在小螢幕上不會過窄 */
+            border-collapse: collapse;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            background-color: #fff;
+            border-radius: 8px; /* 圓角 */
+            overflow: hidden; /* 確保圓角生效 */
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        table th {
+            background-color: #e9ecef;
+            color: #495057;
+            font-weight: 600;
+        }
+        table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        table tbody tr:hover {
+            background-color: #e2f4f8;
+        }
+        .no-match-message {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        /* 彈出視窗樣式 */
+        .modal {
+            display: none; /* 預設隱藏 */
+            position: fixed; /* 固定定位 */
+            z-index: 1001; /* 確保在最上層 */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto; /* 允許滾動 */
+            background-color: rgba(0,0,0,0.4); /* 半透明背景 */
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh; /* 限制高度 */
+        }
+        .close-button {
+            color: #aaa;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-content pre {
+            background-color: #eee;
+            padding: 15px;
+            border-radius: 5px;
+            overflow: auto; /* 允許內容滾動 */
+            flex-grow: 1; /* 讓 pre 佔據剩餘空間 */
+            white-space: pre-wrap; /* 換行 */
+            word-break: break-all; /* 防止長單詞溢出 */
+        }
+
+        /* 新增的樣式：用於隱藏金額為0的行 */
+        .hide-zero-amount-checkbox-group {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end; /* 靠右對齊 */
+            margin-top: -15px; /* 向上微調位置，使其更靠近標題 */
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .hide-zero-amount-checkbox-group input[type="checkbox"] {
+            margin-right: 5px;
+            transform: scale(1.1); /* 稍微放大勾選框 */
+        }
+        /* 被隱藏的行 */
+        .hidden-row {
+            display: none;
+        }
+
+        /* 獨立勾選框的儲存格和標頭樣式 */
+        .hide-row-checkbox-cell {
+            width: 50px; /* 固定寬度，避免內容擠壓 */
+            text-align: center; /* 居中對齊 */
+            vertical-align: middle; /* 垂直居中 */
+        }
+        .hide-row-checkbox-cell label {
+            display: block; /* 讓 label 佔據整個儲存格 */
+            width: 100%;
+            height: 100%;
+            padding: 5px; /* 增加點擊區域 */
+            box-sizing: border-box;
+            cursor: pointer;
+            display: flex; /* 使用 flexbox 居中 checkbox */
+            justify-content: center;
+            align-items: center;
+        }
+        .hide-row-checkbox-cell input[type="checkbox"] {
+            transform: scale(1.3); /* 放大 checkbox 本身 */
+            cursor: pointer;
+        }
+
+        /* 列印專用樣式 */
+        @media print {
+            body > *:not(.print-area) { /* 隱藏所有非列印區域的元素 */
+                display: none;
+            }
+            .print-area {
+                display: block;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            .print-area h2 {
+                text-align: center;
+                margin-top: 20px;
+                margin-bottom: 10px;
+                color: #000; /* 確保列印時標題為黑色 */
+            }
+            .print-area table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+                box-shadow: none; /* 列印時移除陰影 */
+            }
+            .print-area table th,
+            .print-area table td {
+                border: 1px solid #000; /* 確保列印時有黑色邊框 */
+                padding: 8px;
+                text-align: left;
+                color: #000; /* 確保列印時文字為黑色 */
+            }
+            .print-area table th {
+                background-color: #f0f0f0; /* 列印時輕微的背景色 */
+            }
+            .hide-zero-amount-checkbox-group, /* 隱藏列印時的勾選框組 */
+            .no-match-message, /* 隱藏列印時的提示訊息 */
+            .record-count, /* 隱藏列印時的資料總數 */
+            .hide-row-checkbox-cell { /* 隱藏列印時的獨立勾選框欄位 */
+                display: none !important;
+            }
+            .hidden-row { /* 確保列印時也隱藏金額為0的行 */
+                display: none !important;
+            }
+        }

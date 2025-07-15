@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件資料比對</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 SheetJS 函式庫 CDN (用於解析 Excel 檔案) -->
+    <script src="./js/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="./css/index.css">
+    <script src="./js/index.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>文件資料比對工具</h1>
+
+        <div class="input-section">
+            <div class="file-input-group">
+                <label for="txtFile">上傳 TXT 申報對帳檔:</label>
+                <input type="file" id="txtFile" accept=".txt">
+            </div>
+            <div class="file-input-group">
+                <label for="excelFile">上傳 Excel 申報暨代檢費對帳單 (.xls, .xlsx):</label>
+                <input type="file" id="excelFile" accept="application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            </div>
+            <button id="compareBtn" disabled>開始比對</button> <!-- 預設禁用 -->
+            <div class="view-data-buttons">
+                <button id="viewTxtDataBtn" disabled>檢視 TXT 解析結果</button>
+                <button id="viewExcelDataBtn" disabled>檢視 Excel 解析結果</button>
+                <button id="printResultsBtn" disabled>列印結果</button> <!-- 新增列印按鈕 -->
+                <button id="unhideAllBtn" disabled>顯示所有隱藏資料</button> <!-- 新增顯示所有隱藏資料按鈕 -->
+            </div>
+        </div>
+
+        <div class="results-section print-area"> <!-- 添加 print-area class -->
+            <h2>申報對帳檔中存在，但代檢費對帳單中不存在的資料 <span id="txtReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
+            <div class="hide-zero-amount-checkbox-group">
+                <input type="checkbox" id="hideZeroTxtAmount"> <!-- 移除 checked 屬性 -->
+                <label for="hideZeroTxtAmount">隱藏申報金額為 0 的資料</label>
+            </div>
+            <table id="txtMissingInExcel">
+                <thead>
+                    <tr>
+                        <th class="hide-row-checkbox-cell">隱藏</th> <!-- 新增隱藏欄位表頭 -->
+                        <th>病歷號碼</th>
+                        <th>病患姓名</th>
+                        <th>生日</th>
+                        <th>檢驗日期</th>
+                        <th>申報金額</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 結果將插入此處 -->
+                </tbody>
+            </table>
+
+            <h2 class="mt-8">代檢費對帳單中存在，但申報對帳檔中不存在的資料 <span id="excelReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
+            <div class="hide-zero-amount-checkbox-group">
+                <input type="checkbox" id="hideZeroExcelAmount" checked> <!-- 預設勾選 -->
+                <label for="hideZeroExcelAmount">隱藏申報金額為 0 的資料</label>
+            </div>
+            <table id="excelMissingInTxt">
+                <thead>
+                    <tr>
+                        <th class="hide-row-checkbox-cell">隱藏</th> <!-- 新增隱藏欄位表頭 -->
+                        <th>病歷號碼</th>
+                        <th>病患姓名</th>
+                        <th>生日</th>
+                        <th>檢驗日期</th>
+                        <th>申報金額</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 結果將插入此處 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 彈出視窗結構 -->
+    <div id="dataModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3 id="modalTitle" class="text-xl font-bold mb-4 text-center"></h3>
+            <pre id="parsedDataDisplay" class="text-sm"></pre>
+        </div>
+    </div>
+
+</body>
+</html>
