@@ -26,8 +26,7 @@
             </div>
             <button id="compareBtn" disabled>開始比對</button> <!-- 預設禁用 -->
             <div class="view-data-buttons">
-                <button id="viewTxtDataBtn" disabled>檢視 TXT 解析結果</button>
-                <button id="viewExcelDataBtn" disabled>檢視 Excel 解析結果</button>
+                <button id="openCalcModalBtn" disabled>計算成健金額</button> <!-- 新增按鈕，預設禁用 -->
                 <button id="printResultsBtn" disabled>列印結果</button> <!-- 新增列印按鈕 -->
                 <button id="unhideAllBtn" disabled>顯示所有隱藏資料</button> <!-- 新增顯示所有隱藏資料按鈕 -->
             </div>
@@ -78,14 +77,41 @@
         </div>
     </div>
 
-    <!-- 彈出視窗結構 -->
-    <div id="dataModal" class="modal">
+    <!-- 計算成健金額模態視窗 -->
+    <div id="calcModal" class="modal">
         <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h3 id="modalTitle" class="text-xl font-bold mb-4 text-center"></h3>
-            <pre id="parsedDataDisplay" class="text-sm"></pre>
+            <span class="close-button" id="closeCalcModalBtn">&times;</span>
+            <h3 class="text-xl font-bold mb-4 text-center">成健金額計算工具</h3>
+
+            <div class="calculation-results">
+                <h3>金額計算結果</h3>
+                <div class="calculation-grid">
+                    <div class="calculation-item">
+                        <label for="calcDiscountPercentage">打折的成數 (%)</label>
+                        <input type="number" id="calcDiscountPercentage" value="15" min="0" max="100" step="0.01">
+                    </div>
+                    <div class="calculation-item">
+                        <label>申報總額</label>
+                        <span id="calcTotalDeclaredAmount" class="value">0</span>
+                    </div>
+                    <div class="calculation-item">
+                        <label>成健金額 (篩選後)</label>
+                        <span id="calcFilteredAmount" class="value">0</span>
+                    </div>
+                    <div class="calculation-item">
+                        <label>非成健金額 (申報總額 - 成健金額)</label>
+                        <span id="calcNonFilteredAmount" class="value">0</span>
+                    </div>
+                    <div class="calculation-item">
+                        <label>預扣額 (非成健金額 * 打折成數)</label>
+                        <span id="calcDeductionAmount" class="value">0</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+
 
 </body>
 </html>

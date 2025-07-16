@@ -1,4 +1,5 @@
-/* 自定義樣式，覆蓋或補充 Tailwind */
+
+        /* 自定義樣式，覆蓋或補充 Tailwind */
         body {
             font-family: 'Inter', sans-serif; /* 使用 Inter 字體 */
             background-color: #f4f7f6;
@@ -157,10 +158,30 @@
             transform: translateY(-1px); /* 輕微上移 */
             box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
         }
-        .view-data-buttons button:active {
+        button:active {
             transform: translateY(0);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+        /* 新增的計算成健金額按鈕樣式 */
+        button#openCalcModalBtn {
+            background-color: #007bff; /* 藍色按鈕 */
+            opacity: 0.5; /* 預設半透明，表示不可用 */
+            cursor: not-allowed; /* 預設為禁止點擊 */
+        }
+        button#openCalcModalBtn.enabled {
+            opacity: 1; /* 啟用時完全不透明 */
+            cursor: pointer; /* 啟用時允許點擊 */
+        }
+        button#openCalcModalBtn:hover.enabled {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        }
+        button#openCalcModalBtn:active.enabled {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
 
         /* 表格樣式 */
         .results-section {
@@ -222,14 +243,14 @@
             margin: auto;
             padding: 20px;
             border: 1px solid #888;
-            width: 80%;
-            max-width: 800px;
+            width: 80%; /* 80% 畫面寬度 */
+            max-width: 1100px; /* 限制最大寬度 */
             border-radius: 10px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             position: relative;
             display: flex;
             flex-direction: column;
-            max-height: 90vh; /* 限制高度 */
+            overflow-y: auto; /* 允許模態視窗內容滾動 */
         }
         .close-button {
             color: #aaa;
@@ -339,4 +360,87 @@
             .hidden-row { /* 確保列印時也隱藏金額為0的行 */
                 display: none !important;
             }
+
+            /* 隱藏模態視窗內容，因為它不是主列印內容 */
+            .modal {
+                display: none !important;
+            }
+        }
+
+        /* 計算結果區塊 */
+        .calculation-results {
+            background-color: #e6f7ff; /* 淡藍色背景 */
+            border: 1px solid #b3e0ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        }
+        .calculation-results h3 {
+            color: #0056b3;
+            font-weight: 700;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .calculation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* 響應式網格 */
+            gap: 15px;
+        }
+        .calculation-item {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .calculation-item label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 5px;
+        }
+        .calculation-item .value {
+            font-size: 1.4em;
+            color: #007bff;
+            font-weight: 700;
+            word-break: break-all; /* 防止數字過長溢出 */
+        }
+        .calculation-item input[type="number"] {
+            width: 80%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 1.1em;
+        }
+        /* DataTables filter styles for modal - REMOVED */
+        /* These styles are no longer needed as the filter UI is removed */
+
+        .action-buttons {
+            display: flex;
+            justify-content: flex-end; /* 將按鈕靠右對齊 */
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .action-buttons button {
+            padding: 10px 20px;
+            font-size: 15px;
+            opacity: 1; /* 確保按鈕在模態視窗中是完全可見的 */
+            cursor: pointer;
+        }
+        .action-buttons .clear-button {
+            background-color: #dc3545; /* 紅色 */
+        }
+        .action-buttons .clear-button:hover {
+            background-color: #c82333;
+        }
+        .action-buttons .export-button {
+            background-color: #17a2b8; /* 藍綠色 */
+        }
+        .action-buttons .export-button:hover {
+            background-color: #138496;
         }
