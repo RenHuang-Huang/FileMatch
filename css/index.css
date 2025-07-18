@@ -420,27 +420,21 @@
         /* DataTables filter styles for modal - REMOVED */
         /* These styles are no longer needed as the filter UI is removed */
 
-        .action-buttons {
+        .action-buttons-modal { /* 區分主頁面按鈕和模態視窗按鈕 */
             display: flex;
             justify-content: flex-end; /* 將按鈕靠右對齊 */
             gap: 15px;
             margin-top: 20px;
         }
-        .action-buttons button {
+        .action-buttons-modal button {
             padding: 10px 20px;
             font-size: 15px;
             opacity: 1; /* 確保按鈕在模態視窗中是完全可見的 */
             cursor: pointer;
         }
-        .action-buttons .clear-button {
-            background-color: #dc3545; /* 紅色 */
-        }
-        .action-buttons .clear-button:hover {
-            background-color: #c82333;
-        }
-        .action-buttons .export-button {
+        .action-buttons-modal .export-button {
             background-color: #17a2b8; /* 藍綠色 */
         }
-        .action-buttons .export-button:hover {
+        .action-buttons-modal .export-button:hover {
             background-color: #138496;
         }

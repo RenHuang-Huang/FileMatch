@@ -1,72 +1,28 @@
 
         let parsedTxtRecords = []; // 儲存所有解析後的 TXT 記錄，用於主頁面
         let parsedExcelRecords = []; // 儲存所有解析後的 Excel 記錄，用於主頁面
-        // let calcDataTableInstance; // 全域變數，用於儲存計算模態視窗的 DataTable 實例 - 已移除
+        let txtRawDataTableInstance; // 全域變數，用於儲存 TXT 原始資料模態視窗的 DataTable 實例
         let calcTotalDeclaredAmount = 0; // 計算模態視窗的申報總額（來自所有解析後的 TXT 記錄）
 
         // 定義 TXT 檔案解析的完整欄位配置
+        // 這些配置現在主要用於 DataTables 的欄位定義和數據映射
         const TXT_COLUMN_CONFIG = [
-            { header: '病歷號', start: 0, length: 8, key: 'medicalRecordId', type: 'string' },
-            { header: '姓名', start: 9, length: 8, key: 'name', type: 'string' },
-            { header: '身份證號', start: 18, length: 10, key: 'idNumber', type: 'string' },
-            { header: '性別', start: 29, length: 2, key: 'gender', type: 'string' },
-            { header: '出生日期', start: 33, length: 8, key: 'birthDate', type: 'date' },
-            { header: '機構代號', start: 42, length: 10, key: 'institutionCode', type: 'string' },
-            { header: '科別', start: 53, length: 3, key: 'department', type: 'string' },
-            { header: '就醫日期', start: 58, length: 9, key: 'visitDate', type: 'date' },
-            { header: '健卡序號', start: 68, length: 4, key: 'healthCardSerial', type: 'string', filterable: true }, // 新增 filterable 屬性
-            { header: '分類', start: 73, length: 5, key: 'category', type: 'string', filterable: true }, // 新增 filterable 屬性
-            { header: '醫師代號', start: 80, length: 10, key: 'doctorID', type: 'string' },
-            { header: '檢驗日期', start: 91, length: 9, key: 'inspectionDate', type: 'date' },
-            { header: '點數', start: 101, length: 5, key: 'points', type: 'number' },
-            { header: '成數', start: 107, length: 4, key: 'percentage', type: 'number' },
-            { header: '金額', start: 111, length: 5, key: 'amount', type: 'number' } // 修正 start 值為 111
+            { header: '病歷號', key: 'medicalRecordId', type: 'string' },
+            { header: '姓名', key: 'name', type: 'string' },
+            { header: '身份證號', key: 'idNumber', type: 'string' },
+            { header: '性別', key: 'gender', type: 'string' },
+            { header: '出生日期', key: 'birthDate', type: 'date' },
+            { header: '機構代號', key: 'institutionCode', type: 'string' },
+            { header: '科別', key: 'department', type: 'string' },
+            { header: '就醫日期', key: 'visitDate', type: 'date' },
+            { header: '健卡序號', key: 'healthCardSerial', type: 'string' },
+            { header: '分類', key: 'category', type: 'string' },
+            { header: '醫師代號', key: 'doctorID', type: 'string' },
+            { header: '檢驗日期', key: 'inspectionDate', type: 'date' },
+            { header: '點數', key: 'points', type: 'number' },
+            { header: '成數', key: 'percentage', type: 'number' },
+            { header: '金額', key: 'amount', type: 'number' }
         ];
-
-        /**
-         * 判斷字符是否為全形字符。
-         * 全形字符通常在終端或固定寬度字體中佔用兩個半形字符的空間。
-         * @param {string} char - 要判斷的字符。
-         * @returns {boolean} 如果是全形字符則返回 true，否則返回 false。
-         */
-        function isFullWidth(char) {
-            const code = char.charCodeAt(0);
-            // 判斷常見的全形字符範圍，例如中日韓文字符
-            return code > 255; // 中文、日文等視為全形字
-        }
-
-        /**
-         * 為 String 原型添加一個方法，根據視覺寬度截取字串。
-         * 全形字符佔用 2 個視覺寬度，半形字符佔用 1 個視覺寬度。
-         * @param {number} startVisual - 視覺起始位置（從 0 開始）。
-         * @param {number} lengthVisual - 要截取的視覺長度。
-         * @returns {string} 截取後的字串。
-         */
-        String.prototype.substrByVisualWidth = function(startVisual, lengthVisual) {
-            let result = '';
-            let currentVisualWidth = 0;
-            let charIndex = 0;
-            const str = this;
-
-            while (charIndex < str.length) {
-                const char = str[charIndex];
-                const charWidth = isFullWidth(char) ? 2 : 1;
-
-                // 如果當前字符的視覺寬度加上已累積的寬度超過了目標結束位置，則停止
-                if (currentVisualWidth + charWidth > startVisual + lengthVisual) {
-                    break;
-                }
-
-                // 如果已累積的寬度達到或超過起始位置，則將字符添加到結果中
-                if (currentVisualWidth >= startVisual) {
-                    result += char;
-                }
-
-                currentVisualWidth += charWidth;
-                charIndex++;
-            }
-            return result;
-        };
 
         /**
          * 讀取 TXT 檔案內容。
@@ -119,15 +75,22 @@
         }
 
         /**
-         * 解析 TXT 檔案的資料。
-         * 根據預定義的視覺寬度位置截取所有欄位。
+         * 解析 TXT 檔案的資料 (空白字元切割)。
+         * 嘗試用空白字元切割字串，並根據欄位順序和特定模式映射。
          * @param {string} data - TXT 檔案的原始字串內容。
          * @returns {Array<Object>} 解析後的資料陣列。
          */
-        function parseTxtData(data) {
+        function parseTxtDataBySpaces(data) {
             const lines = data.split('\r\n');
             const records = [];
             let dataStarted = false;
+
+            // 定義正規表達式模式，用於更穩健地識別欄位
+            const idNumberRegex = /[A-Z]\d{9}/i; // 身份證號碼 (1個字母+9個數字)
+            const dateRegex = /\d{2,3}\.\d{2}\.\d{2}/; // 日期 (YY.MM.DD 或 YYY.MM.DD)
+            // const healthCardSerialRegex = /^(IC|C)[0-9A-Z]{2}$/i; // 健卡序號 (ICXX 或 CXX)
+            const categoryRegex = /^A3$/i; // 分類 (A3)
+            // const amountRegex = /^\d+$/; // 純數字金額
 
             for (const line of lines) {
                 // 精確識別標題行
@@ -142,39 +105,90 @@
                     continue;
                 }
 
-                // 檢查是否是診所名稱行 (例如 "謝坤川診所")
-                // 使用 TXT_COLUMN_CONFIG 的第一個欄位 (病歷號) 來檢查
-                const potentialMedicalRecordId = line.substrByVisualWidth(TXT_COLUMN_CONFIG[0].start, TXT_COLUMN_CONFIG[0].length).trim();
-                if (!/\d/.test(potentialMedicalRecordId) && potentialMedicalRecordId.length > 0 && potentialMedicalRecordId.length < 10) {
-                        console.warn('跳過可能為診所名稱或非資料行:', line);
-                        continue;
-                }
-
                 const record = {};
                 let isValidRecord = true;
+                const tokens = line.trim().split(/\s+/).filter(token => token !== ''); // 分割並移除空字串
 
-                // Iterate through the comprehensive TXT_COLUMN_CONFIG to parse all fields
-                for (const colConfig of TXT_COLUMN_CONFIG) {
-                    let value = line.substrByVisualWidth(colConfig.start, colConfig.length).trim();
-
-                    if (colConfig.type === 'number') {
-                        value = parseInt(value, 10);
-                        if (isNaN(value)) {
-                            console.warn(`無法解析數值欄位 ${colConfig.header}: "${value}"，設定為 0。`);
-                            value = 0; // 設定為 0 或 null
-                        }
-                    } else if (colConfig.type === 'date') {
-                        // 將日期轉換為 YYYY-MM-DD 格式，方便比較
-                        value = convertDateToISO(value);
-                    }
-                    record[colConfig.key] = value;
+                if (tokens.length === 0) {
+                    continue; // 跳過完全空白的行
                 }
 
-                // 簡易驗證：確保關鍵欄位不為空
-                // Use 'amount' key as per TXT_COLUMN_CONFIG
+                // 嘗試從 tokens 中提取資料
+                let tokenIndex = 0;
+
+                // 1. 病歷號碼 (通常是第一個數字或數字開頭的字串)
+                record.medicalRecordId = tokens[tokenIndex++] || '';
+
+                // 2. 姓名 (可能有多個字，需要判斷)
+                // 姓名通常在病歷號碼之後，身份證號碼之前。
+                // 這裡假設姓名不會包含身份證號碼、日期等特殊格式
+                let nameParts = [];
+                while (tokenIndex < tokens.length && !tokens[tokenIndex].match(idNumberRegex) && !tokens[tokenIndex].match(dateRegex) && tokens[tokenIndex].length < 15) {
+                    nameParts.push(tokens[tokenIndex++]);
+                }
+                record.name = nameParts.join(''); // 姓名可能由多個 token 組成
+
+                // 3. 身份證號碼
+                if (tokenIndex < tokens.length && tokens[tokenIndex].match(idNumberRegex)) {
+                    record.idNumber = tokens[tokenIndex++].toUpperCase();
+                } else {
+                    record.idNumber = ''; // 如果沒有找到，設定為空
+                }
+
+                // 4. 性別 (通常是 男/女)
+                record.gender = tokens[tokenIndex++] || '';
+
+                // 5. 出生日期 (不轉換為西元年)
+                record.birthDate = tokens[tokenIndex++] || '';
+
+                // 6. 機構代號
+                record.institutionCode = tokens[tokenIndex++] || '';
+
+                // 7. 科別
+                record.department = tokens[tokenIndex++] || '';
+
+                // 8. 就醫日期 (不轉換為西元年)
+                record.visitDate = tokens[tokenIndex++] || '';
+
+                // 9. 健卡序號
+                // 直接按順序解析，不進行格式比對
+                if (tokenIndex < tokens.length) {
+                    record.healthCardSerial = tokens[tokenIndex++].toUpperCase();
+                } else {
+                    record.healthCardSerial = '';
+                }
+
+                // 10. 分類
+                // 直接按順序解析，不進行格式比對
+                if (tokenIndex < tokens.length) {
+                    record.category = tokens[tokenIndex++].toUpperCase();
+                } else {
+                    record.category = '';
+                }
+                
+                // 11. 醫師代號
+                record.doctorID = tokens[tokenIndex++] || '';
+
+                // 12. 檢驗日期 (不轉換為西元年)
+                record.inspectionDate = tokens[tokenIndex++] || '';
+
+                // 13. 點數
+                record.points = parseInt(tokens[tokenIndex++] || '0', 10);
+                if (isNaN(record.points)) record.points = 0;
+
+                // 14. 成數
+                record.percentage = parseInt(tokens[tokenIndex++] || '0', 10);
+                if (isNaN(record.percentage)) record.percentage = 0;
+
+                // 15. 金額 (通常是最後一個數字)
+                record.amount = parseInt(tokens[tokenIndex++] || '0', 10);
+                if (isNaN(record.amount)) record.amount = 0;
+
+
+                // 簡易驗證：確保關鍵欄位不為空或無效
                 if (!record.medicalRecordId || !record.name || !record.inspectionDate || isNaN(record.amount)) {
                     isValidRecord = false;
-                    console.warn('無法解析 TXT 行中的關鍵資料，跳過此行:', line);
+                    console.warn('空白字元解析失敗或關鍵資料缺失，跳過此行:', line, '解析結果:', record);
                 }
 
                 if (isValidRecord) {
@@ -183,6 +197,7 @@
             }
             return records;
         }
+
 
         /**
          * 使用 SheetJS 解析 Excel 檔案的資料。
@@ -272,7 +287,7 @@
             const excelOnly = [];
 
             for (const txtRec of txtRecords) {
-                // 使用 'amount' 鍵作為 TXT 記錄的依據，與 Excel 記錄的 declaredAmount 進行比對
+                // 使用 'amount' 鍵作為 TXT 記錄的依據，與 Excel 記錄的 declaredAmount 和 name 進行比對
                 const foundInExcel = excelRecords.some(excelRec =>
                     excelRec.name === txtRec.name && excelRec.declaredAmount === txtRec.amount
                 );
@@ -282,7 +297,7 @@
             }
 
             for (const excelRec of excelRecords) {
-                // 使用 'amount' 鍵作為 TXT 記錄的依據，與 Excel 記錄的 declaredAmount 進行比對
+                // 使用 'amount' 鍵作為 TXT 記錄的依據，與 Excel 記錄的 declaredAmount 和 name 進行比對
                 const foundInTxt = txtRecords.some(txtRec =>
                     txtRec.name === excelRec.name && txtRec.amount === excelRec.declaredAmount
                 );
@@ -320,6 +335,7 @@
             document.getElementById('unhideAllBtn').disabled = true;
             document.getElementById('openCalcModalBtn').disabled = true; // 禁用計算按鈕
             document.getElementById('openCalcModalBtn').classList.remove('enabled'); // 移除啟用樣式
+            document.getElementById('openTxtRawModalBtn').disabled = true; // 禁用 TXT 原始資料按鈕
 
             parsedTxtRecords = [];
             parsedExcelRecords = [];
@@ -330,13 +346,13 @@
                 // 讀取 Excel 檔案內容
                 const excelData = await readExcelFile(excelFile);
 
-                // 解析檔案內容為結構化資料
-                parsedTxtRecords = parseTxtData(txtData);
+                // 解析檔案內容為結構化資料 (主比對功能使用空白字元分割解析)
+                parsedTxtRecords = parseTxtDataBySpaces(txtData);
                 parsedExcelRecords = parseExcelData(excelData);
 
                 // 計算 TXT 申報總額 (用於計算模態視窗)
                 calcTotalDeclaredAmount = parsedTxtRecords.reduce((sum, record) => sum + (record.amount || 0), 0);
-
+                console.log("申報總額:"+calcTotalDeclaredAmount)
                 // 更新讀取資料總數顯示
                 document.getElementById('txtReadCount').textContent = `(讀取 ${parsedTxtRecords.length} 筆資料)`;
                 document.getElementById('excelReadCount').textContent = `(讀取 ${parsedExcelRecords.length} 筆資料)`;
@@ -346,6 +362,7 @@
                 document.getElementById('unhideAllBtn').disabled = false;
                 document.getElementById('openCalcModalBtn').disabled = false; // 啟用計算按鈕
                 document.getElementById('openCalcModalBtn').classList.add('enabled'); // 添加啟用樣式
+                document.getElementById('openTxtRawModalBtn').disabled = false; // 啟用 TXT 原始資料按鈕
 
                 // 執行資料比對
                 performComparison(parsedTxtRecords, parsedExcelRecords);
@@ -432,26 +449,19 @@
          * 根據勾選框狀態顯示或隱藏金額為0的行。
          * 此函數現在會重新評估所有行的可見性。
          * @param {HTMLElement} tableBodyElement - 目標表格的 tbody 元素。
-         * @param {boolean} isChecked - 勾選框是否被選中。
-         * @param {string} type - 觸發的勾選框類型 ('amount' 或 'individual')。
+         * @param {HTMLInputElement} hideZeroAmountCheckbox - 隱藏金額為0的勾選框元素。
          */
-        function toggleRowsVisibility(tableBodyElement, isChecked, type) {
+        function toggleRowsVisibility(tableBodyElement, hideZeroAmountCheckbox) {
             const rows = tableBodyElement.querySelectorAll('tr');
-            const hideZeroAmountCheckboxForTable = (tableBodyElement.id === 'txtMissingInExcel' ? document.getElementById('hideZeroTxtAmount') : document.getElementById('hideZeroExcelAmount'));
-
             rows.forEach(row => {
-                updateRowVisibility(row, hideZeroAmountCheckboxForTable);
+                updateRowVisibility(row, hideZeroAmountCheckbox);
             });
         }
 
         /**
-         * 顯示所有隱藏的資料。
+         * 顯示所有隱藏的資料 (僅取消單獨勾選的隱藏，不影響金額為0的篩選)。
          */
         function unhideAllRows() {
-            // 重置兩個表格的「隱藏申報金額為 0 的資料」勾選框到預設狀態
-            document.getElementById('hideZeroTxtAmount').checked = false;
-            document.getElementById('hideZeroExcelAmount').checked = true;
-
             // 遍歷所有表格行，取消勾選獨立的隱藏方框並更新可見性
             const allRows = document.querySelectorAll('#txtMissingInExcel tbody tr, #excelMissingInTxt tbody tr');
             allRows.forEach(row => {
@@ -460,12 +470,12 @@
                     individualCheckbox.checked = false; // 取消勾選
                     row.dataset.hiddenByCheckbox = 'false'; // 重置數據屬性
                 }
-                // 重新評估行的可見性，根據新的勾選框狀態
+                // 重新評估行的可見性，根據當前「隱藏金額為0」的勾選框狀態
                 const hideZeroAmountCheckboxForTable = (row.closest('table').id === 'txtMissingInExcel' ? document.getElementById('hideZeroTxtAmount') : document.getElementById('hideZeroExcelAmount'));
                 updateRowVisibility(row, hideZeroAmountCheckboxForTable);
             });
 
-            showMessageBox('所有隱藏資料已顯示。');
+            showMessageBox('所有被勾選隱藏的資料已顯示。');
         }
 
 
@@ -475,13 +485,8 @@
         function printResults() {
             const printWindow = window.open('', '_blank');
             printWindow.document.write('<html><head><title>比對結果列印</title>');
-            printWindow.document.write('<script src="https://cdn.tailwindcss.com"><\/script>');
-            printWindow.document.write('<style>');
-            // 複製主頁面的所有樣式
-            Array.from(document.querySelectorAll('style')).forEach(style => {
-                printWindow.document.write(style.textContent);
-            });
-            printWindow.document.write('</style>');
+            printWindow.document.write('<script src="./js/tailwindcss3.4.16.js"></script>');
+            printWindow.document.write('<link rel="stylesheet" href="./css/index.css">');
             printWindow.document.write('</head><body>');
 
             // 創建一個臨時 div 來複製和清理 resultsSection 的內容
@@ -505,18 +510,6 @@
             printWindow.onload = function() {
                 printWindow.print();
             };
-
-            setTimeout(() => {
-                try {
-                    if (printWindow && !printWindow.closed) {
-                        printWindow.focus();
-                        printWindow.print();
-                    }
-                } catch (e) {
-                    console.error('列印失敗 (備用):', e);
-                    showMessageBox('列印功能可能被瀏覽器阻止，請檢查您的瀏覽器設定。');
-                }
-            }, 500);
         }
 
         /**
@@ -533,6 +526,7 @@
             document.getElementById('unhideAllBtn').disabled = true;
             document.getElementById('openCalcModalBtn').disabled = true; // 禁用計算按鈕
             document.getElementById('openCalcModalBtn').classList.remove('enabled'); // 移除啟用樣式
+            document.getElementById('openTxtRawModalBtn').disabled = true; // 禁用 TXT 原始資料按鈕
 
             // 重置讀取資料總數顯示
             document.getElementById('txtReadCount').textContent = '(讀取 0 筆資料)';
@@ -583,18 +577,18 @@
         function openCalcModal() {
             const calcModal = document.getElementById('calcModal');
             const calcTotalDeclaredAmountSpan = document.getElementById('calcTotalDeclaredAmount');
-            // const calcDiscountPercentageInput = document.getElementById('calcDiscountPercentage'); // 仍然需要這個輸入框的值
+            const calcDiscountPercentageInput = document.getElementById('calcDiscountPercentage');
 
             if (parsedTxtRecords.length === 0) {
                 showMessageBox('請先上傳並比對 TXT 檔案以載入資料。');
                 return;
             }
 
-            // 計算 TXT 申報總額 (用於計算模態視窗)
-            calcTotalDeclaredAmount = parsedTxtRecords.reduce((sum, record) => sum + (record.amount || 0), 0);
+            // 申報總額：顯示未經過篩選後資料的金額總和。
+            // calcTotalDeclaredAmount 已經是所有 TXT 檔案資料的總金額 (未篩選的總和)。
             calcTotalDeclaredAmountSpan.textContent = calcTotalDeclaredAmount.toLocaleString();
 
-            // 不再初始化 DataTable，直接更新計算結果
+            // 執行金額計算顯示
             updateAllCalculationsForCalcModal();
 
             calcModal.style.display = 'flex';
@@ -609,15 +603,8 @@
             document.getElementById('calcDiscountPercentage').value = '15';
         }
 
-        // 移除 initializeCalcDataTable 函數，因為不再使用 DataTables
-
-        // 移除 clearCalcFilters 函數，因為沒有手動篩選可清除
-
-        // 移除 exportCalcTableToExcel 函數，因為沒有表格可匯出
-
         /**
          * 更新計算模態視窗中所有金額計算結果的顯示。
-         * 此函數現在會直接根據硬編碼的篩選條件來計算。
          */
         function updateAllCalculationsForCalcModal() {
             const calcTotalDeclaredAmountSpan = document.getElementById('calcTotalDeclaredAmount');
@@ -626,22 +613,122 @@
             const calcDeductionAmountSpan = document.getElementById('calcDeductionAmount');
             const calcDiscountPercentageInput = document.getElementById('calcDiscountPercentage');
 
-            // 根據硬編碼的篩選條件過濾 parsedTxtRecords
-            const filteredRecords = parsedTxtRecords.filter(record => {
-                const isCategoryA3 = record.category && record.category.toLowerCase() === 'a3';
-                const isHealthCardIC = record.healthCardSerial && record.healthCardSerial.toLowerCase().startsWith('ic');
-                return isCategoryA3 && isHealthCardIC;
-            });
+            // 申報總額：顯示未經過篩選後資料的金額總和。
+            // calcTotalDeclaredAmount 已經是所有 TXT 檔案資料的總金額 (未篩選的總和)。
+            calcTotalDeclaredAmountSpan.textContent = calcTotalDeclaredAmount.toLocaleString();
 
+            // 成健金額：顯示經過篩選條件篩選後資料的金額欄位總和。
+            // 篩選條件：「分類」欄位篩選為「A3」。「健卡序號」欄位篩選為以「IC」開頭的序號。
+            const filteredRecords = parsedTxtRecords.filter(record => {
+                const isCategoryA3 = record.category && record.category.trim().toUpperCase() === 'A3';
+                const isHealthCardSerialIC = record.healthCardSerial && record.healthCardSerial.trim().toUpperCase().startsWith('IC');
+                return isCategoryA3 && isHealthCardSerialIC;
+            });
             const currentFilteredAmount = filteredRecords.reduce((sum, record) => sum + (record.amount || 0), 0);
             calcFilteredAmountSpan.textContent = currentFilteredAmount.toLocaleString();
 
+            // 非成健金額：計算方式為「申報總額」減去「成健金額」。
             const nonFilteredAmount = calcTotalDeclaredAmount - currentFilteredAmount;
             calcNonFilteredAmountSpan.textContent = nonFilteredAmount.toLocaleString();
 
+            // 預扣額：計算方式為「非成健金額」乘以可調整的「打折的成數 (%)」。
             const discount = parseFloat(calcDiscountPercentageInput.value) / 100;
             const deductionAmount = nonFilteredAmount * (isNaN(discount) ? 0 : discount);
             calcDeductionAmountSpan.textContent = deductionAmount.toLocaleString();
+        }
+
+        // --- TXT Raw Data Modal Functions ---
+
+        /**
+         * 開啟 TXT 原始資料模態視窗。
+         */
+        async function openTxtRawModal() {
+            const txtRawModal = document.getElementById('txtRawModal');
+            const txtFile = document.getElementById('txtFile').files[0];
+
+            if (!txtFile) {
+                showMessageBox('請先上傳 TXT 檔案以載入資料。');
+                return;
+            }
+
+            // 讀取 TXT 檔案內容
+            const txtData = await readTxtFile(txtFile);
+            // 使用 parseTxtDataBySpaces 函數 (空白鍵解析方式)
+            const rawParsedRecords = parseTxtDataBySpaces(txtData);
+
+            // 如果 DataTable 實例已存在，則銷毀它
+            if ($.fn.DataTable.isDataTable('#txtRawDataTable')) {
+                $('#txtRawDataTable').DataTable().destroy();
+                $('#txtRawDataTable thead').empty().append('<tr></tr>');
+                $('#txtRawDataTable tbody').empty();
+            }
+
+            const dataTableColumns = TXT_COLUMN_CONFIG.map(col => ({
+                title: col.header,
+                data: col.key
+            }));
+
+            txtRawDataTableInstance = $('#txtRawDataTable').DataTable({
+                data: rawParsedRecords,
+                columns: dataTableColumns,
+                paging: false, // 移除分頁
+                searching: true, // 允許搜尋
+                ordering: true, // 允許排序
+                info: true,
+                lengthChange: false, // 隱藏 "Show X entries" 下拉選單
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/2.0.8/i18n/zh-HANT.json'
+                },
+                initComplete: function () {
+                    // 調整欄位寬度
+                    this.api().columns.adjust().draw();
+                }
+            });
+
+            txtRawModal.style.display = 'flex';
+        }
+
+        /**
+         * 關閉 TXT 原始資料模態視窗。
+         */
+        function closeTxtRawModal() {
+            document.getElementById('txtRawModal').style.display = 'none';
+            if (txtRawDataTableInstance) {
+                txtRawDataTableInstance.destroy();
+                txtRawDataTableInstance = null;
+                $('#txtRawDataTable thead').empty().append('<tr></tr>');
+                $('#txtRawDataTable tbody').empty();
+            }
+        }
+
+        /**
+         * 匯出 TXT 原始資料模態視窗中表格資料到 Excel 檔案。
+         */
+        function exportTxtRawTableToExcel() {
+            if (!txtRawDataTableInstance || txtRawDataTableInstance.rows().count() === 0) {
+                showMessageBox('目前沒有原始資料可以匯出。請先解析 TXT 檔案。');
+                return;
+            }
+
+            // 獲取 DataTables 中當前顯示的所有資料 (包括搜尋和排序後的結果)
+            const dataToExport = txtRawDataTableInstance.rows({ search: 'applied' }).data().toArray();
+
+            const headers = TXT_COLUMN_CONFIG.map(col => col.header);
+            const exportData = [headers];
+
+            dataToExport.forEach(record => {
+                const row = TXT_COLUMN_CONFIG.map(col => record[col.key]);
+                exportData.push(row);
+            });
+
+            const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "TXT原始資料");
+
+            const fileName = `TXT_原始資料_${new Date().toISOString().slice(0,10)}.xlsx`;
+            XLSX.writeFile(workbook, fileName);
+
+            showMessageBox('原始資料已成功匯出為 Excel 檔案！');
         }
 
 
@@ -661,17 +748,20 @@
             const openCalcModalBtn = document.getElementById('openCalcModalBtn');
             const closeCalcModalBtn = document.getElementById('closeCalcModalBtn'); // 用於 calcModal
             const calcDiscountPercentageInput = document.getElementById('calcDiscountPercentage');
-            // const clearCalcFilterBtn = document.getElementById('clearCalcFilterBtn'); // 已移除
-            // const exportCalcExcelBtn = document.getElementById('exportCalcExcelBtn'); // 已移除
+
+            // TXT 原始資料模態視窗的元素
+            const openTxtRawModalBtn = document.getElementById('openTxtRawModalBtn');
+            const closeTxtRawModalBtn = document.getElementById('closeTxtRawModalBtn');
+            const exportTxtRawExcelBtn = document.getElementById('exportTxtRawExcelBtn'); // 新增匯出按鈕
 
 
             // 事件監聽器
             compareBtn.addEventListener('click', compareFiles);
             printResultsBtn.addEventListener('click', printResults);
-            unhideAllBtn.addEventListener('click', unhideAllRows);
+            unhideAllBtn.addEventListener('click', unhideAllRows); // 使用修改後的 unhideAllRows 函式
 
-            hideZeroTxtAmountCheckbox.addEventListener('change', () => toggleRowsVisibility(txtMissingInExcelTableBody, hideZeroTxtAmountCheckbox.checked, 'amount'));
-            hideZeroExcelAmountCheckbox.addEventListener('change', () => toggleRowsVisibility(excelMissingInTxtTableBody, hideZeroExcelAmountCheckbox.checked, 'amount'));
+            hideZeroTxtAmountCheckbox.addEventListener('change', () => toggleRowsVisibility(txtMissingInExcelTableBody, hideZeroTxtAmountCheckbox));
+            hideZeroExcelAmountCheckbox.addEventListener('change', () => toggleRowsVisibility(excelMissingInTxtTableBody, hideZeroExcelAmountCheckbox));
 
             txtFileInput.addEventListener('change', checkFilesAndEnableButton);
             excelFileInput.addEventListener('change', checkFilesAndEnableButton);
@@ -680,8 +770,11 @@
             openCalcModalBtn.addEventListener('click', openCalcModal);
             closeCalcModalBtn.addEventListener('click', closeCalcModal);
             calcDiscountPercentageInput.addEventListener('input', updateAllCalculationsForCalcModal);
-            // clearCalcFilterBtn.addEventListener('click', clearCalcFilters); // 已移除
-            // exportCalcExcelBtn.addEventListener('click', exportCalcTableToExcel); // 已移除
+
+            // TXT 原始資料模態視窗的事件監聽器
+            openTxtRawModalBtn.addEventListener('click', openTxtRawModal);
+            closeTxtRawModalBtn.addEventListener('click', closeTxtRawModal);
+            exportTxtRawExcelBtn.addEventListener('click', exportTxtRawTableToExcel); // 新增匯出按鈕事件監聽器
 
             /**
              * 檢查兩個檔案輸入框是否都有檔案，並啟用/禁用比對按鈕。
@@ -698,6 +791,7 @@
                     unhideAllBtn.disabled = true;
                     openCalcModalBtn.disabled = true;
                     openCalcModalBtn.classList.remove('enabled');
+                    openTxtRawModalBtn.disabled = true; // 禁用 TXT 原始資料按鈕
                     clearResults(); // 清除主頁面比對結果
                 }
             }

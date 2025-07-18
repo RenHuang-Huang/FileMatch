@@ -3,13 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文件資料比對</title>
+    <title>文件資料比對工具</title>
     <!-- 引入 Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 SheetJS 函式庫 CDN (用於解析 Excel 檔案) -->
+    <script src="./js/tailwindcss3.4.16.js"></script>
+    <!-- 引入 jQuery (DataTables 依賴 jQuery) -->
+    <script src="./js/jquery-3.7.1.min.js"></script>
+    <!-- 引入 DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="./css/dataTables.dataTables.min.css">
+    <!-- 引入 DataTables JS -->
+    <script type="text/javascript" charset="utf8" src="./js/dataTables.min.js"></script>
+    <!-- 引入 SheetJS 函式庫 CDN (用於解析和匯出 Excel 檔案) -->
     <script src="./js/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="./css/index.css">
     <script src="./js/index.js"></script>
+
 </head>
 <body>
     <div class="container">
@@ -27,8 +34,9 @@
             <button id="compareBtn" disabled>開始比對</button> <!-- 預設禁用 -->
             <div class="view-data-buttons">
                 <button id="openCalcModalBtn" disabled>計算成健金額</button> <!-- 新增按鈕，預設禁用 -->
+                <button id="openTxtRawModalBtn" disabled>檢視 TXT 原始資料</button> <!-- 新增檢視 TXT 原始資料按鈕 -->
                 <button id="printResultsBtn" disabled>列印結果</button> <!-- 新增列印按鈕 -->
-                <button id="unhideAllBtn" disabled>顯示所有隱藏資料</button> <!-- 新增顯示所有隱藏資料按鈕 -->
+                <button id="unhideAllBtn" disabled>取消隱藏被勾選資料</button> <!-- 修改按鈕文字 -->
             </div>
         </div>
 
@@ -95,23 +103,42 @@
                         <span id="calcTotalDeclaredAmount" class="value">0</span>
                     </div>
                     <div class="calculation-item">
-                        <label>成健金額 (篩選後)</label>
+                        <label>成健金額</label>
                         <span id="calcFilteredAmount" class="value">0</span>
                     </div>
                     <div class="calculation-item">
-                        <label>非成健金額 (申報總額 - 成健金額)</label>
+                        <label>非成健金額</label>
                         <span id="calcNonFilteredAmount" class="value">0</span>
                     </div>
                     <div class="calculation-item">
-                        <label>預扣額 (非成健金額 * 打折成數)</label>
+                        <label>預扣額</label>
                         <span id="calcDeductionAmount" class="value">0</span>
                     </div>
                 </div>
             </div>
+            <!-- 根據需求移除表格和操作按鈕 -->
         </div>
     </div>
 
-
-
+    <!-- 新增 TXT 原始資料模態視窗 -->
+    <div id="txtRawModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeTxtRawModalBtn">&times;</span>
+            <h3 class="text-xl font-bold mb-4 text-center">TXT 原始資料 (空白鍵解析)</h3>
+            <div class="action-buttons-modal">
+                <button id="exportTxtRawExcelBtn" class="export-button">匯出 Excel</button>
+            </div>
+            <div class="overflow-auto flex-grow mt-4">
+                <table id="txtRawDataTable" class="w-full text-sm display">
+                    <thead>
+                        <tr></tr>
+                    </thead>
+                    <tbody>
+                        <!-- TXT 原始資料將插入此處 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
