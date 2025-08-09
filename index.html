@@ -41,7 +41,7 @@
         </div>
 
         <div class="results-section print-area"> <!-- 添加 print-area class -->
-            <h2>申報對帳檔中存在，但代檢費對帳單中不存在的資料 <span id="txtReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
+            <h2>申報對帳(樓下)檔中存在，但代檢費對帳單(樓上)中不存在的資料 <span id="txtReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
             <div class="hide-zero-amount-checkbox-group">
                 <input type="checkbox" id="hideZeroTxtAmount"> <!-- 移除 checked 屬性 -->
                 <label for="hideZeroTxtAmount">隱藏申報金額為 0 的資料</label>
@@ -50,6 +50,7 @@
                 <thead>
                     <tr>
                         <th class="hide-row-checkbox-cell">隱藏</th> <!-- 新增隱藏欄位表頭 -->
+                        <th>原因</th>
                         <th>病歷號碼</th>
                         <th>病患姓名</th>
                         <th>生日</th>
@@ -62,7 +63,7 @@
                 </tbody>
             </table>
 
-            <h2 class="mt-8">代檢費對帳單中存在，但申報對帳檔中不存在的資料 <span id="excelReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
+            <h2 class="mt-8">代檢費對帳單(樓上)中存在，但申報對帳(樓下)檔中不存在的資料 <span id="excelReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
             <div class="hide-zero-amount-checkbox-group">
                 <input type="checkbox" id="hideZeroExcelAmount" checked> <!-- 預設勾選 -->
                 <label for="hideZeroExcelAmount">隱藏申報金額為 0 的資料</label>
@@ -71,6 +72,7 @@
                 <thead>
                     <tr>
                         <th class="hide-row-checkbox-cell">隱藏</th> <!-- 新增隱藏欄位表頭 -->
+                        <th>原因</th>
                         <th>病歷號碼</th>
                         <th>病患姓名</th>
                         <th>生日</th>

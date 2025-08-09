@@ -361,6 +361,11 @@
                 display: none !important;
             }
 
+            /* 新增樣式：在第一個表格結束後強制換頁 */
+            #txtMissingInExcel {
+                page-break-after: always;
+            }
+            
             /* 隱藏模態視窗內容，因為它不是主列印內容 */
             .modal {
                 display: none !important;

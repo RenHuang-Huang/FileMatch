@@ -86,7 +86,7 @@
             let dataStarted = false;
 
             // 定義正規表達式模式，用於更穩健地識別欄位
-            const idNumberRegex = /[A-Z]\d{9}/i; // 身份證號碼 (1個字母+9個數字)
+            const idNumberRegex = /^[A-Z]\d{9}|[A-Z]{2}\d{8}$/i;; // 身份證號碼 (1個字母+9個數字)
             const dateRegex = /\d{2,3}\.\d{2}\.\d{2}/; // 日期 (YY.MM.DD 或 YYY.MM.DD)
             // const healthCardSerialRegex = /^(IC|C)[0-9A-Z]{2}$/i; // 健卡序號 (ICXX 或 CXX)
             const categoryRegex = /^A3$/i; // 分類 (A3)
@@ -126,7 +126,7 @@
                 while (tokenIndex < tokens.length && !tokens[tokenIndex].match(idNumberRegex) && !tokens[tokenIndex].match(dateRegex) && tokens[tokenIndex].length < 15) {
                     nameParts.push(tokens[tokenIndex++]);
                 }
-                record.name = nameParts.join(''); // 姓名可能由多個 token 組成
+                record.name = nameParts.join('').replace("＊","*").replace("？","?"); // 姓名可能由多個 token 組成
 
                 // 3. 身份證號碼
                 if (tokenIndex < tokens.length && tokens[tokenIndex].match(idNumberRegex)) {
@@ -222,7 +222,7 @@
                     row.some(cell => typeof cell === 'string' && cell.includes('病患姓名')) &&
                     row.some(cell => typeof cell === 'string' && cell.includes('生日')) &&
                     row.some(cell => typeof cell === 'string' && cell.includes('檢驗日期')) &&
-                    row.some(cell => typeof cell === 'string' && cell.includes('打折後申報金額'))) {
+                    row.some(cell => typeof cell === 'string' && cell.includes('申報金額'))) {
                     headerRow = row.map(cell => typeof cell === 'string' ? cell.trim() : ''); // 清理標題
                     headerRowIndex = i;
                     break;
@@ -230,7 +230,7 @@
             }
 
             if (!headerRow) {
-                throw new Error('Excel 文件中找不到包含所有必要欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 打折後申報金額) 的標題行。');
+                throw new Error('Excel 文件中找不到包含所有必要欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 申報金額) 的標題行。');
             }
 
             // 根據新的欄位名稱獲取索引
@@ -238,12 +238,12 @@
             const nameColIndex = headerRow.indexOf('病患姓名');
             const birthDateColIndex = headerRow.indexOf('生日');
             const inspectionDateColIndex = headerRow.indexOf('檢驗日期');
-            const amountColIndex = headerRow.indexOf('打折後申報金額');
+            const amountColIndex = headerRow.indexOf('申報金額');
 
             if (medicalRecordIdColIndex === -1 || nameColIndex === -1 ||
                 birthDateColIndex === -1 || inspectionDateColIndex === -1 ||
                 amountColIndex === -1) {
-                throw new Error('Excel 文件缺少必要的欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 或 打折後申報金額)。');
+                throw new Error('Excel 文件缺少必要的欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 或 申報金額)。');
             }
 
             // 從標題行之後的資料行開始解析
@@ -283,29 +283,65 @@
          * @param {Array<Object>} excelRecords - 從 Excel 檔案解析的記錄。
          */
         function performComparison(txtRecords, excelRecords) {
+            // 建立以 'name' 和 'amount' 組合為鍵的 Map，方便快速查詢，同時避免重複比對
+            // 這裡我們需要一個能處理多筆相同 name + amount 記錄的結構，因此使用一個陣列來儲存
+            const excelMap = new Map();
+            for (const rec of excelRecords) {
+                const key = `${rec.name}-${rec.declaredAmount}`;
+                if (!excelMap.has(key)) {
+                    excelMap.set(key, []);
+                }
+                excelMap.get(key).push(rec);
+            }
+
             const txtOnly = [];
             const excelOnly = [];
+            
+            // 用來記錄已經被配對過的 excel 記錄的索引，避免重複比對
+            const matchedExcelIndexes = new Set();
 
+            // 第一階段比對：從 txtRecords 中尋找 excelRecords
             for (const txtRec of txtRecords) {
-                // 使用 'amount' 鍵作為 TXT 記錄的依據，與 Excel 記錄的 declaredAmount 和 name 進行比對
-                const foundInExcel = excelRecords.some(excelRec =>
-                    excelRec.name === txtRec.name && excelRec.declaredAmount === txtRec.amount
-                );
-                if (!foundInExcel) {
-                    txtOnly.push(txtRec);
+                const key = `${txtRec.name}-${txtRec.amount}`;
+                const potentialMatches = excelMap.get(key);
+
+                if (potentialMatches && potentialMatches.length > 0) {
+                    // 找到精確匹配的記錄
+                    // 為了不影響原始資料，我們將第一個潛在匹配視為匹配，並將其從 Map 中移除
+                    potentialMatches.shift();
+                    if (potentialMatches.length === 0) {
+                        excelMap.delete(key);
+                    }
+                } else {
+                    // 沒有找到精確匹配，現在判斷具體原因
+                    let reason = '未找到';
+                    // 檢查是否有姓名相符但金額不符的記錄
+                    const nameMatchExists = excelRecords.some(excelRec => excelRec.name === txtRec.name);
+                    if (nameMatchExists) {
+                        reason = '金額不符';
+                    }
+                    txtOnly.push({ ...txtRec, reason: reason });
                 }
             }
 
+            // 第二階段比對：處理 excelMap 中剩餘的記錄，這些都是獨特的記錄或金額不符的記錄
             for (const excelRec of excelRecords) {
-                // 使用 'amount' 鍵作為 TXT 記錄的依據，與 Excel 記錄的 declaredAmount 和 name 進行比對
-                const foundInTxt = txtRecords.some(txtRec =>
+                // 檢查此 excel 記錄是否在 txtRecords 中有完全匹配的
+                const foundInTxt = txtRecords.some(txtRec => 
                     txtRec.name === excelRec.name && txtRec.amount === excelRec.declaredAmount
                 );
                 if (!foundInTxt) {
-                    excelOnly.push(excelRec);
+                    let reason = '未找到';
+                    // 檢查是否有姓名相符但金額不符的記錄
+                    const nameMatchExists = txtRecords.some(txtRec => txtRec.name === excelRec.name);
+                    if (nameMatchExists) {
+                        reason = '金額不符';
+                    }
+                    excelOnly.push({ ...excelRec, reason: reason });
                 }
             }
 
+            // 呼叫顯示結果的函式
             displayResults(txtOnly, document.querySelector('#txtMissingInExcel tbody'), document.getElementById('hideZeroTxtAmount'));
             displayResults(excelOnly, document.querySelector('#excelMissingInTxt tbody'), document.getElementById('hideZeroExcelAmount'));
 
@@ -404,6 +440,7 @@
                 checkboxCell.appendChild(label); // 將 label 添加到 td 中
 
                 // 顯示指定的欄位，TXT 記錄使用 'amount'，Excel 記錄使用 'declaredAmount'
+                row.insertCell().textContent = record.reason;
                 row.insertCell().textContent = record.medicalRecordId;
                 row.insertCell().textContent = record.name;
                 row.insertCell().textContent = record.birthDate;
@@ -498,6 +535,13 @@
             clonedResultsSection.querySelectorAll('.record-count').forEach(el => el.remove());
             clonedResultsSection.querySelectorAll('.hide-row-checkbox-cell').forEach(el => el.remove()); // 移除獨立勾選框的單元格
 
+            const allClonedRows = clonedResultsSection.querySelectorAll('tbody tr');
+            allClonedRows.forEach(row => {
+                if (row.classList.contains('hidden-row')) {
+                    row.remove(); // 如果行被隱藏，則從列印內容中移除
+                }
+            });
+            // 
             // 將清理後的內容添加到列印視窗的 body 中
             printWindow.document.write('<div class="print-area">'); // 重新添加 print-area class
             printWindow.document.write(clonedResultsSection.innerHTML); // 插入清理後的內容
