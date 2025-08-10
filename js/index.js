@@ -3,6 +3,7 @@
         let parsedExcelRecords = []; // 儲存所有解析後的 Excel 記錄，用於主頁面
         let txtRawDataTableInstance; // 全域變數，用於儲存 TXT 原始資料模態視窗的 DataTable 實例
         let calcTotalDeclaredAmount = 0; // 計算模態視窗的申報總額（來自所有解析後的 TXT 記錄）
+        let clinicName = ''; // 儲存診所名稱，用於列印標題
 
         // 定義 TXT 檔案解析的完整欄位配置
         // 這些配置現在主要用於 DataTables 的欄位定義和數據映射
@@ -78,12 +79,21 @@
          * 解析 TXT 檔案的資料 (空白字元切割)。
          * 嘗試用空白字元切割字串，並根據欄位順序和特定模式映射。
          * @param {string} data - TXT 檔案的原始字串內容。
+         * @param {boolean} extractClinicName - 是否提取診所名稱（僅第一個檔案需要）。
          * @returns {Array<Object>} 解析後的資料陣列。
          */
-        function parseTxtDataBySpaces(data) {
+        function parseTxtDataBySpaces(data, extractClinicName = false) {
             const lines = data.split('\r\n');
             const records = [];
             let dataStarted = false;
+
+            // 提取診所名稱（根據用戶要求，從第8行提取）
+            if (extractClinicName && lines.length >= 8 && lines[7].trim()) {
+                const eighthLine = lines[7].trim();
+                // 第8行通常直接包含診所名稱
+                clinicName = eighthLine;
+                console.log('提取到的診所名稱（第8行）:', clinicName);
+            }
 
             // 定義正規表達式模式，用於更穩健地識別欄位
             const idNumberRegex = /^[A-Z]\d{9}|[A-Z]{2}\d{8}$/i;; // 身份證號碼 (1個字母+9個數字)
@@ -356,11 +366,11 @@
          * 執行兩個資料集之間的比對。
          */
         async function compareFiles() {
-            const txtFile = document.getElementById('txtFile').files[0];
-            const excelFile = document.getElementById('excelFile').files[0];
+            const txtFiles = document.getElementById('txtFile').files;
+            const excelFiles = document.getElementById('excelFile').files;
 
-            // 檢查是否同時上傳了兩個檔案
-            if (!txtFile || !excelFile) {
+            // 檢查是否同時上傳了檔案
+            if (txtFiles.length === 0 || excelFiles.length === 0) {
                 showMessageBox('請同時上傳 TXT 檔和 Excel 檔。');
                 return;
             }
@@ -375,16 +385,24 @@
 
             parsedTxtRecords = [];
             parsedExcelRecords = [];
+            clinicName = ''; // 重置診所名稱
 
             try {
-                // 讀取 TXT 檔案內容
-                const txtData = await readTxtFile(txtFile);
-                // 讀取 Excel 檔案內容
-                const excelData = await readExcelFile(excelFile);
+                // 處理多個 TXT 檔案
+                for (let i = 0; i < txtFiles.length; i++) {
+                    const txtFile = txtFiles[i];
+                    const txtData = await readTxtFile(txtFile);
+                    const txtRecords = parseTxtDataBySpaces(txtData, i === 0); // 只在第一個檔案時提取診所名稱
+                    parsedTxtRecords.push(...txtRecords);
+                }
 
-                // 解析檔案內容為結構化資料 (主比對功能使用空白字元分割解析)
-                parsedTxtRecords = parseTxtDataBySpaces(txtData);
-                parsedExcelRecords = parseExcelData(excelData);
+                // 處理多個 Excel 檔案
+                for (let i = 0; i < excelFiles.length; i++) {
+                    const excelFile = excelFiles[i];
+                    const excelData = await readExcelFile(excelFile);
+                    const excelRecords = parseExcelData(excelData);
+                    parsedExcelRecords.push(...excelRecords);
+                }
 
                 // 計算 TXT 申報總額 (用於計算模態視窗)
                 calcTotalDeclaredAmount = parsedTxtRecords.reduce((sum, record) => sum + (record.amount || 0), 0);
@@ -524,7 +542,12 @@
             printWindow.document.write('<html><head><title>比對結果列印</title>');
             printWindow.document.write('<script src="./js/tailwindcss3.4.16.js"></script>');
             printWindow.document.write('<link rel="stylesheet" href="./css/index.css">');
+            printWindow.document.write('<style>');
+            printWindow.document.write('@media print { .clinic-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 20px; } }');
+            printWindow.document.write('</style>');
             printWindow.document.write('</head><body>');
+
+            
 
             // 創建一個臨時 div 來複製和清理 resultsSection 的內容
             const clonedResultsSection = document.querySelector('.results-section').cloneNode(true);
@@ -544,6 +567,11 @@
             // 
             // 將清理後的內容添加到列印視窗的 body 中
             printWindow.document.write('<div class="print-area">'); // 重新添加 print-area class
+            // 添加診所名稱標題
+            if (clinicName) {
+                printWindow.document.write(`<h1 class="clinic-title">${clinicName}</h1>`);
+                printWindow.document.write('<hr style="margin-bottom: 20px;">');
+            }
             printWindow.document.write(clonedResultsSection.innerHTML); // 插入清理後的內容
             printWindow.document.write('</div>');
             printWindow.document.write('</body></html>');
@@ -688,17 +716,22 @@
          */
         async function openTxtRawModal() {
             const txtRawModal = document.getElementById('txtRawModal');
-            const txtFile = document.getElementById('txtFile').files[0];
+            const txtFiles = document.getElementById('txtFile').files;
 
-            if (!txtFile) {
+            if (txtFiles.length === 0) {
                 showMessageBox('請先上傳 TXT 檔案以載入資料。');
                 return;
             }
 
-            // 讀取 TXT 檔案內容
-            const txtData = await readTxtFile(txtFile);
-            // 使用 parseTxtDataBySpaces 函數 (空白鍵解析方式)
-            const rawParsedRecords = parseTxtDataBySpaces(txtData);
+            // 處理多個 TXT 檔案
+            let allRawParsedRecords = [];
+            for (let i = 0; i < txtFiles.length; i++) {
+                const txtFile = txtFiles[i];
+                const txtData = await readTxtFile(txtFile);
+                // 使用 parseTxtDataBySpaces 函數 (空白鍵解析方式)，不需要重新提取診所名稱
+                const rawParsedRecords = parseTxtDataBySpaces(txtData, false);
+                allRawParsedRecords.push(...rawParsedRecords);
+            }
 
             // 如果 DataTable 實例已存在，則銷毀它
             if ($.fn.DataTable.isDataTable('#txtRawDataTable')) {
@@ -713,7 +746,7 @@
             }));
 
             txtRawDataTableInstance = $('#txtRawDataTable').DataTable({
-                data: rawParsedRecords,
+                data: allRawParsedRecords,
                 columns: dataTableColumns,
                 paging: false, // 移除分頁
                 searching: true, // 允許搜尋
@@ -807,8 +840,14 @@
             hideZeroTxtAmountCheckbox.addEventListener('change', () => toggleRowsVisibility(txtMissingInExcelTableBody, hideZeroTxtAmountCheckbox));
             hideZeroExcelAmountCheckbox.addEventListener('change', () => toggleRowsVisibility(excelMissingInTxtTableBody, hideZeroExcelAmountCheckbox));
 
-            txtFileInput.addEventListener('change', checkFilesAndEnableButton);
-            excelFileInput.addEventListener('change', checkFilesAndEnableButton);
+            txtFileInput.addEventListener('change', function() {
+                updateFileList(this.files, 'txtFileList', 'txtFile');
+                checkFilesAndEnableButton();
+            });
+            excelFileInput.addEventListener('change', function() {
+                updateFileList(this.files, 'excelFileList', 'excelFile');
+                checkFilesAndEnableButton();
+            });
 
             // calcModal 的事件監聽器
             openCalcModalBtn.addEventListener('click', openCalcModal);
@@ -821,10 +860,93 @@
             exportTxtRawExcelBtn.addEventListener('click', exportTxtRawTableToExcel); // 新增匯出按鈕事件監聽器
 
             /**
-             * 檢查兩個檔案輸入框是否都有檔案，並啟用/禁用比對按鈕。
+             * 格式化檔案大小
+             * @param {number} bytes - 檔案大小（位元組）
+             * @returns {string} 格式化後的檔案大小字串
+             */
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            /**
+             * 更新檔案列表顯示
+             * @param {FileList} files - 檔案列表
+             * @param {string} listId - 顯示列表的 ID
+             * @param {string} inputId - 檔案輸入框的 ID
+             */
+            function updateFileList(files, listId, inputId) {
+                const fileListContainer = document.getElementById(listId);
+                fileListContainer.innerHTML = '';
+
+                if (files.length === 0) {
+                    return;
+                }
+
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const fileItem = document.createElement('div');
+                    fileItem.classList.add('file-item');
+
+                    const fileName = document.createElement('span');
+                    fileName.classList.add('file-name');
+                    fileName.textContent = file.name;
+
+                    const fileSize = document.createElement('span');
+                    fileSize.classList.add('file-size');
+                    fileSize.textContent = formatFileSize(file.size);
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.classList.add('remove-file');
+                    removeBtn.textContent = '移除';
+                    removeBtn.type = 'button';
+                    removeBtn.addEventListener('click', () => removeFile(i, inputId, listId));
+
+                    fileItem.appendChild(fileName);
+                    fileItem.appendChild(fileSize);
+                    fileItem.appendChild(removeBtn);
+                    fileListContainer.appendChild(fileItem);
+                }
+            }
+
+            /**
+             * 移除特定檔案
+             * @param {number} index - 要移除的檔案索引
+             * @param {string} inputId - 檔案輸入框的 ID
+             * @param {string} listId - 顯示列表的 ID
+             */
+            function removeFile(index, inputId, listId) {
+                const fileInput = document.getElementById(inputId);
+                const dt = new DataTransfer();
+                
+                // 重新建立檔案列表，排除指定索引的檔案
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    if (i !== index) {
+                        dt.items.add(fileInput.files[i]);
+                    }
+                }
+                
+                // 更新檔案輸入框
+                fileInput.files = dt.files;
+                
+                // 更新顯示列表
+                updateFileList(fileInput.files, listId, inputId);
+                
+                // 檢查並更新按鈕狀態
+                checkFilesAndEnableButton();
+            }
+
+            /**
+             * 檢查檔案輸入框是否都有檔案，並啟用/禁用比對按鈕。
              */
             function checkFilesAndEnableButton() {
-                if (txtFileInput.files[0] && excelFileInput.files[0]) {
+                const txtFiles = txtFileInput.files;
+                const excelFiles = excelFileInput.files;
+                
+                if (txtFiles.length > 0 && excelFiles.length > 0) {
                     compareBtn.disabled = false;
                     compareBtn.classList.add('highlight-button');
                 } else {

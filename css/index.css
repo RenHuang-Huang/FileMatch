@@ -85,6 +85,51 @@
             background-color: #0056b3;
             transform: translateY(-1px);
         }
+        .file-list {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 8px;
+            margin-bottom: 5px;
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .file-item:last-child {
+            margin-bottom: 0;
+        }
+        .file-name {
+            flex-grow: 1;
+            margin-right: 10px;
+            word-break: break-all;
+        }
+        .file-size {
+            color: #6c757d;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        .remove-file {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .remove-file:hover {
+            background-color: #c82333;
+        }
         button {
             padding: 12px 25px;
             background-color: #28a745; /* 預設綠色 */

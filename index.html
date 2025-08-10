@@ -24,12 +24,14 @@
 
         <div class="input-section">
             <div class="file-input-group">
-                <label for="txtFile">上傳 TXT 申報對帳檔:</label>
-                <input type="file" id="txtFile" accept=".txt">
+                <label for="txtFile">上傳 TXT 申報對帳檔 (可選擇多個檔案):</label>
+                <input type="file" id="txtFile" accept=".txt" multiple>
+                <div id="txtFileList" class="file-list"></div>
             </div>
             <div class="file-input-group">
-                <label for="excelFile">上傳 Excel 申報暨代檢費對帳單 (.xls, .xlsx):</label>
-                <input type="file" id="excelFile" accept="application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                <label for="excelFile">上傳 Excel 申報暨代檢費對帳單 (可選擇多個檔案):</label>
+                <input type="file" id="excelFile" accept="application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple>
+                <div id="excelFileList" class="file-list"></div>
             </div>
             <button id="compareBtn" disabled>開始比對</button> <!-- 預設禁用 -->
             <div class="view-data-buttons">
