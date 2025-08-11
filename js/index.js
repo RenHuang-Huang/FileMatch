@@ -136,7 +136,7 @@
                 while (tokenIndex < tokens.length && !tokens[tokenIndex].match(idNumberRegex) && !tokens[tokenIndex].match(dateRegex) && tokens[tokenIndex].length < 15) {
                     nameParts.push(tokens[tokenIndex++]);
                 }
-                record.name = nameParts.join('').replace("＊","*").replace("？","?"); // 姓名可能由多個 token 組成
+                record.name = nameParts.join('').replace("＊","*").replace("？","?").replace(".",""); // 姓名可能由多個 token 組成
 
                 // 3. 身份證號碼
                 if (tokenIndex < tokens.length && tokens[tokenIndex].match(idNumberRegex)) {
@@ -230,6 +230,7 @@
                 if (Array.isArray(row) &&
                     row.some(cell => typeof cell === 'string' && cell.includes('病歷號碼')) &&
                     row.some(cell => typeof cell === 'string' && cell.includes('病患姓名')) &&
+                    row.some(cell => typeof cell === 'string' && cell.includes('身分證')) &&
                     row.some(cell => typeof cell === 'string' && cell.includes('生日')) &&
                     row.some(cell => typeof cell === 'string' && cell.includes('檢驗日期')) &&
                     row.some(cell => typeof cell === 'string' && cell.includes('申報金額'))) {
@@ -240,20 +241,21 @@
             }
 
             if (!headerRow) {
-                throw new Error('Excel 文件中找不到包含所有必要欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 申報金額) 的標題行。');
+                throw new Error('Excel 文件中找不到包含所有必要欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 身分證, 申報金額) 的標題行。');
             }
 
             // 根據新的欄位名稱獲取索引
             const medicalRecordIdColIndex = headerRow.indexOf('病歷號碼');
             const nameColIndex = headerRow.indexOf('病患姓名');
+            const idCardColIndex = headerRow.indexOf('身分證');
             const birthDateColIndex = headerRow.indexOf('生日');
             const inspectionDateColIndex = headerRow.indexOf('檢驗日期');
             const amountColIndex = headerRow.indexOf('申報金額');
 
             if (medicalRecordIdColIndex === -1 || nameColIndex === -1 ||
                 birthDateColIndex === -1 || inspectionDateColIndex === -1 ||
-                amountColIndex === -1) {
-                throw new Error('Excel 文件缺少必要的欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 或 申報金額)。');
+                idCardColIndex === -1 || amountColIndex === -1) {
+                throw new Error('Excel 文件缺少必要的欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 身分證, 或 申報金額)。');
             }
 
             // 從標題行之後的資料行開始解析
@@ -266,12 +268,14 @@
                     const name = (row[nameColIndex] || '').toString().trim();
                     const birthDate = (row[birthDateColIndex] || '').toString().trim();
                     const inspectionDate = (row[inspectionDateColIndex] || '').toString().trim();
+                    const idCard = (row[idCardColIndex] || '').toString().trim();
                     const declaredAmount = parseInt((row[amountColIndex] || '0').toString().trim(), 10);
 
-                    if (medicalRecordId && name && birthDate && inspectionDate && !isNaN(declaredAmount)) {
+                    if (medicalRecordId && name && birthDate && inspectionDate && idCard && !isNaN(declaredAmount)) {
                         records.push({
                             medicalRecordId: medicalRecordId,
                             name: name,
+                            idCard: idCard,
                             birthDate: birthDate,
                             inspectionDate: inspectionDate,
                             declaredAmount: declaredAmount
@@ -293,11 +297,11 @@
          * @param {Array<Object>} excelRecords - 從 Excel 檔案解析的記錄。
          */
         function performComparison(txtRecords, excelRecords) {
-            // 建立以 'name' 和 'amount' 組合為鍵的 Map，方便快速查詢，同時避免重複比對
-            // 這裡我們需要一個能處理多筆相同 name + amount 記錄的結構，因此使用一個陣列來儲存
+            // 建立以 'id' 和 'amount' 組合為鍵的 Map，方便快速查詢，同時避免重複比對
+            // 這裡我們需要一個能處理多筆相同 id + amount 記錄的結構，因此使用一個陣列來儲存
             const excelMap = new Map();
             for (const rec of excelRecords) {
-                const key = `${rec.name}-${rec.declaredAmount}`;
+                const key = `${rec.idCard}-${rec.declaredAmount}`;
                 if (!excelMap.has(key)) {
                     excelMap.set(key, []);
                 }
@@ -307,27 +311,17 @@
             const txtOnly = [];
             const excelOnly = [];
             
-            // 用來記錄已經被配對過的 excel 記錄的索引，避免重複比對
-            const matchedExcelIndexes = new Set();
-
             // 第一階段比對：從 txtRecords 中尋找 excelRecords
             for (const txtRec of txtRecords) {
-                const key = `${txtRec.name}-${txtRec.amount}`;
+                const key = `${txtRec.idNumber}-${txtRec.amount}`;
                 const potentialMatches = excelMap.get(key);
 
-                if (potentialMatches && potentialMatches.length > 0) {
-                    // 找到精確匹配的記錄
-                    // 為了不影響原始資料，我們將第一個潛在匹配視為匹配，並將其從 Map 中移除
-                    potentialMatches.shift();
-                    if (potentialMatches.length === 0) {
-                        excelMap.delete(key);
-                    }
-                } else {
+                if (potentialMatches && potentialMatches.length > 0){
                     // 沒有找到精確匹配，現在判斷具體原因
                     let reason = '未找到';
-                    // 檢查是否有姓名相符但金額不符的記錄
-                    const nameMatchExists = excelRecords.some(excelRec => excelRec.name === txtRec.name);
-                    if (nameMatchExists) {
+                    // 檢查是否有身分證相符但金額不符的記錄
+                    const idCardMatchExists = excelRecords.some(excelRec => excelRec.idCard === txtRec.idNumber);
+                    if (idCardMatchExists) {
                         reason = '金額不符';
                     }
                     txtOnly.push({ ...txtRec, reason: reason });
@@ -338,13 +332,13 @@
             for (const excelRec of excelRecords) {
                 // 檢查此 excel 記錄是否在 txtRecords 中有完全匹配的
                 const foundInTxt = txtRecords.some(txtRec => 
-                    txtRec.name === excelRec.name && txtRec.amount === excelRec.declaredAmount
+                    txtRec.idNumber === excelRec.idCard && txtRec.amount === excelRec.declaredAmount
                 );
                 if (!foundInTxt) {
                     let reason = '未找到';
-                    // 檢查是否有姓名相符但金額不符的記錄
-                    const nameMatchExists = txtRecords.some(txtRec => txtRec.name === excelRec.name);
-                    if (nameMatchExists) {
+                    // 檢查是否有身分證相符但金額不符的記錄
+                    const idCardMatchExists = txtRecords.some(txtRec => txtRec.idNumber === excelRec.idCard);
+                    if (idCardMatchExists) {
                         reason = '金額不符';
                     }
                     excelOnly.push({ ...excelRec, reason: reason });
@@ -356,7 +350,7 @@
             displayResults(excelOnly, document.querySelector('#excelMissingInTxt tbody'), document.getElementById('hideZeroExcelAmount'));
 
             if (txtOnly.length === 0 && excelOnly.length === 0) {
-                showMessageBox('比對完成！兩份文件所有姓名和申報金額的資料均匹配。');
+                showMessageBox('比對完成！兩份文件所有身分證和申報金額的資料均匹配。');
             } else if (txtOnly.length > 0 || excelOnly.length > 0) {
                 showMessageBox('比對完成！請查看下方表格，找出未匹配的資料。');
             }
@@ -461,6 +455,7 @@
                 row.insertCell().textContent = record.reason;
                 row.insertCell().textContent = record.medicalRecordId;
                 row.insertCell().textContent = record.name;
+                row.insertCell().textContent = record.idCard || record.idNumber; // 使用 Excel 的 idCard 或 TXT 的 idNumber
                 row.insertCell().textContent = record.birthDate;
                 row.insertCell().textContent = record.inspectionDate;
                 row.insertCell().textContent = record.amount !== undefined ? record.amount : record.declaredAmount;
