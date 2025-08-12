@@ -297,8 +297,12 @@
          * @param {Array<Object>} excelRecords - 從 Excel 檔案解析的記錄。
          */
         function performComparison(txtRecords, excelRecords) {
+            const txtOnly = [];
+            const excelOnly = [];
+
             // 建立以 'id' 和 'amount' 組合為鍵的 Map，方便快速查詢，同時避免重複比對
             // 這裡我們需要一個能處理多筆相同 id + amount 記錄的結構，因此使用一個陣列來儲存
+            // 建立excel map
             const excelMap = new Map();
             for (const rec of excelRecords) {
                 const key = `${rec.idCard}-${rec.declaredAmount}`;
@@ -308,15 +312,18 @@
                 excelMap.get(key).push(rec);
             }
 
-            const txtOnly = [];
-            const excelOnly = [];
-            
             // 第一階段比對：從 txtRecords 中尋找 excelRecords
             for (const txtRec of txtRecords) {
                 const key = `${txtRec.idNumber}-${txtRec.amount}`;
                 const potentialMatches = excelMap.get(key);
-
-                if (potentialMatches && potentialMatches.length > 0){
+                if (potentialMatches && potentialMatches.length > 0) {
+                    // 找到身分證-金額匹配的記錄(可能有多筆同樣的身分證和金額)
+                    // 以第一個匹配到的數據，將其從 Map 中移除
+                    potentialMatches.shift();
+                    if (potentialMatches.length === 0) {
+                        excelMap.delete(key);
+                    }
+                } else {
                     // 沒有找到精確匹配，現在判斷具體原因
                     let reason = '未找到';
                     // 檢查是否有身分證相符但金額不符的記錄
@@ -326,8 +333,8 @@
                     }
                     txtOnly.push({ ...txtRec, reason: reason });
                 }
+                
             }
-
             // 第二階段比對：處理 excelMap 中剩餘的記錄，這些都是獨特的記錄或金額不符的記錄
             for (const excelRec of excelRecords) {
                 // 檢查此 excel 記錄是否在 txtRecords 中有完全匹配的
