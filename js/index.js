@@ -756,7 +756,7 @@
                 info: true,
                 lengthChange: false, // 隱藏 "Show X entries" 下拉選單
                 language: {
-                    url: '//cdn.datatables.net/plug-ins/2.0.8/i18n/zh-HANT.json'
+                    url: './zh-HANT.json'
                 },
                 initComplete: function () {
                     // 調整欄位寬度
