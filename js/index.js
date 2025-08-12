@@ -545,7 +545,7 @@
             printWindow.document.write('<script src="./js/tailwindcss3.4.16.js"></script>');
             printWindow.document.write('<link rel="stylesheet" href="./css/index.css">');
             printWindow.document.write('<style>');
-            printWindow.document.write('@media print { .clinic-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 20px; } }');
+            printWindow.document.write('@media print { .clinic-title { position: fixed; top: 0; left: 0; right: 0; text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; padding: 5px 0; border-bottom: 1px solid #ccc;  } }');
             printWindow.document.write('</style>');
             printWindow.document.write('</head><body>');
 

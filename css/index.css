@@ -488,3 +488,7 @@
         .action-buttons-modal .export-button:hover {
             background-color: #138496;
         }
+        .text-red-500 {
+            color: #f56565;
+            font-weight: bold;
+        }
