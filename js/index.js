@@ -678,6 +678,126 @@
         }
 
         /**
+         * 列印成健金額計算結果。
+         */
+        function printCalcModal() {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write('<html><head><title>成健金額計算結果</title>');
+            printWindow.document.write('<meta charset="UTF-8">');
+            printWindow.document.write('<style>');
+            printWindow.document.write(`
+                body { 
+                    margin: 20px; 
+                    font-family: Arial, sans-serif, '微軟正黑體', 'Microsoft JhengHei'; 
+                    line-height: 1.6;
+                }
+                .print-calc-title { 
+                    text-align: center; 
+                    font-size: 24px; 
+                    font-weight: bold; 
+                    margin-bottom: 30px;
+                    padding: 10px 0;
+                    border-bottom: 2px solid #333;
+                }
+                .print-calc-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 20px;
+                    margin-top: 20px;
+                    max-width: 800px;
+                    margin-left: auto;
+                    margin-right: auto;
+                }
+                .print-calc-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 15px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                    background-color: #f9f9f9;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                .print-calc-label {
+                    font-weight: bold;
+                    color: #333;
+                }
+                .print-calc-value {
+                    color: #007bff;
+                    font-weight: bold;
+                    font-size: 1.1em;
+                }
+                .print-footer {
+                    text-align: center; 
+                    margin-top: 30px; 
+                    font-size: 12px; 
+                    color: #666;
+                    border-top: 1px solid #eee;
+                    padding-top: 15px;
+                }
+                
+                @media print {
+                    body { 
+                        margin: 15mm; 
+                        font-size: 14px;
+                    }
+                    .print-calc-title {
+                        font-size: 20px;
+                        margin-bottom: 25px;
+                    }
+                    .print-calc-grid {
+                        gap: 15px;
+                        grid-template-columns: 1fr 1fr;
+                    }
+                    .print-calc-item {
+                        padding: 12px;
+                        break-inside: avoid;
+                    }
+                    .print-calc-value {
+                        color: #000 !important;
+                    }
+                }
+            `);
+            printWindow.document.write('</style>');
+            printWindow.document.write('</head><body>');
+
+            // 添加診所名稱和標題
+            if (clinicName) {
+                printWindow.document.write(`<h1 class="print-calc-title">${clinicName}<br>成健金額計算結果</h1>`);
+            } else {
+                printWindow.document.write('<h1 class="print-calc-title">成健金額計算結果</h1>');
+            }
+
+            // 獲取計算結果數據
+            const discountPercentage = document.getElementById('calcDiscountPercentage').value;
+            const totalDeclaredAmount = document.getElementById('calcTotalDeclaredAmount').textContent;
+            const filteredAmount = document.getElementById('calcFilteredAmount').textContent;
+            const nonFilteredAmount = document.getElementById('calcNonFilteredAmount').textContent;
+            const deductionAmount = document.getElementById('calcDeductionAmount').textContent;
+
+            // 添加計算結果
+            printWindow.document.write('<div class="print-calc-grid">');
+            printWindow.document.write(`<div class="print-calc-item"><span class="print-calc-label">打折的成數 (%):</span><span class="print-calc-value">${discountPercentage}%</span></div>`);
+            printWindow.document.write(`<div class="print-calc-item"><span class="print-calc-label">申報總額:</span><span class="print-calc-value">${totalDeclaredAmount}</span></div>`);
+            printWindow.document.write(`<div class="print-calc-item"><span class="print-calc-label">成健金額:</span><span class="print-calc-value">${filteredAmount}</span></div>`);
+            printWindow.document.write(`<div class="print-calc-item"><span class="print-calc-label">非成健金額:</span><span class="print-calc-value">${nonFilteredAmount}</span></div>`);
+            printWindow.document.write(`<div class="print-calc-item"><span class="print-calc-label">預扣額:</span><span class="print-calc-value">${deductionAmount}</span></div>`);
+            printWindow.document.write('</div>');
+
+            // 添加列印時間
+            const printDate = new Date().toLocaleString('zh-TW');
+            printWindow.document.write(`<p class="print-footer">列印時間: ${printDate}</p>`);
+
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+
+            // 等待較長時間確保內容完全加載
+            setTimeout(() => {
+                printWindow.focus();
+                printWindow.print();
+            }, 500);
+        }
+
+        /**
          * 更新計算模態視窗中所有金額計算結果的顯示。
          */
         function updateAllCalculationsForCalcModal() {
@@ -826,6 +946,7 @@
             // 計算模態視窗的元素
             const openCalcModalBtn = document.getElementById('openCalcModalBtn');
             const closeCalcModalBtn = document.getElementById('closeCalcModalBtn'); // 用於 calcModal
+            const printCalcModalBtn = document.getElementById('printCalcModalBtn'); // 列印按鈕
             const calcDiscountPercentageInput = document.getElementById('calcDiscountPercentage');
 
             // TXT 原始資料模態視窗的元素
@@ -854,6 +975,7 @@
             // calcModal 的事件監聽器
             openCalcModalBtn.addEventListener('click', openCalcModal);
             closeCalcModalBtn.addEventListener('click', closeCalcModal);
+            printCalcModalBtn.addEventListener('click', printCalcModal); // 列印事件監聽器
             calcDiscountPercentageInput.addEventListener('input', updateAllCalculationsForCalcModal);
 
             // TXT 原始資料模態視窗的事件監聽器

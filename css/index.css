@@ -198,6 +198,10 @@
             padding: 10px 20px; /* 調整次要按鈕的內邊距 */
             font-size: 15px; /* 調整次要按鈕的字體大小 */
         }
+        
+        #printResultsBtn{
+            background-color: #17a2b8;
+        }
         .view-data-buttons button:hover {
             background-color: #5a6268; /* 懸停時顏色變深 */
             transform: translateY(-1px); /* 輕微上移 */
@@ -311,6 +315,39 @@
             color: black;
             text-decoration: none;
             cursor: pointer;
+        }
+        
+        /* Modal header 樣式 */
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        
+        /* Print button 樣式 */
+        .print-button {
+            background-color: #17a2b8; /* 藍綠色 */
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 15px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            opacity: 1 !important; /* 確保列印按鈕始終可見 */
+            position: absolute;
+            top: 10px;
+            right: 60px; /* 位於關閉按鈕左側 */
+        }
+        .print-button:hover {
+            background-color: #138496;
+            transform: translateY(-1px);
+        }
+        .print-button:active {
+            transform: translateY(0);
         }
         .modal-content pre {
             background-color: #eee;
