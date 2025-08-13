@@ -233,7 +233,8 @@
                     row.some(cell => typeof cell === 'string' && cell.includes('身分證')) &&
                     row.some(cell => typeof cell === 'string' && cell.includes('生日')) &&
                     row.some(cell => typeof cell === 'string' && cell.includes('檢驗日期')) &&
-                    row.some(cell => typeof cell === 'string' && cell.includes('申報金額'))) {
+                    row.some(cell => typeof cell === 'string' && cell.includes('申報金額')) &&
+                    row.some(cell => typeof cell === 'string' && cell.includes('代檢費'))) {
                     headerRow = row.map(cell => typeof cell === 'string' ? cell.trim() : ''); // 清理標題
                     headerRowIndex = i;
                     break;
@@ -241,7 +242,7 @@
             }
 
             if (!headerRow) {
-                throw new Error('Excel 文件中找不到包含所有必要欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 身分證, 申報金額) 的標題行。');
+                throw new Error('Excel 文件中找不到包含所有必要欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 身分證, 申報金額, 代檢費) 的標題行。');
             }
 
             // 根據新的欄位名稱獲取索引
@@ -251,11 +252,12 @@
             const birthDateColIndex = headerRow.indexOf('生日');
             const inspectionDateColIndex = headerRow.indexOf('檢驗日期');
             const amountColIndex = headerRow.indexOf('申報金額');
+            const declaredFeeColIndex = headerRow.indexOf('代檢費'); // 代檢費欄位
 
             if (medicalRecordIdColIndex === -1 || nameColIndex === -1 ||
                 birthDateColIndex === -1 || inspectionDateColIndex === -1 ||
-                idCardColIndex === -1 || amountColIndex === -1) {
-                throw new Error('Excel 文件缺少必要的欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 身分證, 或 申報金額)。');
+                idCardColIndex === -1 || amountColIndex === -1 || declaredFeeColIndex === -1) {
+                throw new Error('Excel 文件缺少必要的欄位 (病歷號碼, 病患姓名, 生日, 檢驗日期, 身分證, 或 申報金額, 代檢費)。');
             }
 
             // 從標題行之後的資料行開始解析
@@ -270,6 +272,7 @@
                     const inspectionDate = (row[inspectionDateColIndex] || '').toString().trim();
                     const idCard = (row[idCardColIndex] || '').toString().trim();
                     const declaredAmount = parseInt((row[amountColIndex] || '0').toString().trim(), 10);
+                    const declaredFee = parseInt((row[declaredFeeColIndex] || '0').toString().trim(), 10);
 
                     if (medicalRecordId && name && birthDate && inspectionDate && idCard && !isNaN(declaredAmount)) {
                         records.push({
@@ -278,7 +281,8 @@
                             idCard: idCard,
                             birthDate: birthDate,
                             inspectionDate: inspectionDate,
-                            declaredAmount: declaredAmount
+                            declaredAmount: declaredAmount,
+                            declaredFee: declaredFee
                         });
                     } else {
                         console.warn('無法解析 Excel 行中的關鍵資料，跳過此行:', row);
@@ -337,6 +341,12 @@
             }
             // 第二階段比對：處理 excelMap 中剩餘的記錄，這些都是獨特的記錄或金額不符的記錄
             for (const excelRec of excelRecords) {
+                // 如果申報金額為0但代檢費不為0，reason紀錄"申報為0"
+                if (excelRec.declaredAmount === 0 && excelRec.declaredFee > 0) {
+                    excelOnly.push({ ...excelRec, reason: `代檢費${excelRec.declaredFee}` });
+                    continue; // 跳過這個記錄，因為它已經有特定的 reason
+                }
+
                 // 檢查此 excel 記錄是否在 txtRecords 中有完全匹配的
                 const foundInTxt = txtRecords.some(txtRec => 
                     txtRec.idNumber === excelRec.idCard && txtRec.amount === excelRec.declaredAmount
@@ -458,6 +468,11 @@
                 label.appendChild(checkbox);
                 checkboxCell.appendChild(label); // 將 label 添加到 td 中
 
+
+                if(record.reason.includes("代檢費")){
+                    record.declaredAmount = `申報金額: ${record.declaredAmount} 元`;
+                }
+
                 // 顯示指定的欄位，TXT 記錄使用 'amount'，Excel 記錄使用 'declaredAmount'
                 row.insertCell().textContent = record.reason;
                 row.insertCell().textContent = record.medicalRecordId;
@@ -470,7 +485,9 @@
 
                 // 為行添加數據屬性，用於追蹤狀態
                 const recordAmount = record.amount !== undefined ? record.amount : record.declaredAmount;
+                
                 row.dataset.amountZero = (recordAmount === 0).toString();
+                
                 row.dataset.hiddenByCheckbox = 'false'; // 初始狀態為未被獨立勾選框隱藏
 
                 // 初始應用隱藏狀態
