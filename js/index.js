@@ -341,25 +341,29 @@
             }
             // 第二階段比對：處理 excelMap 中剩餘的記錄，這些都是獨特的記錄或金額不符的記錄
             for (const excelRec of excelRecords) {
-                // 如果申報金額為0但代檢費不為0，reason紀錄"申報為0"
-                if (excelRec.declaredAmount === 0 && excelRec.declaredFee > 0) {
-                    excelOnly.push({ ...excelRec, reason: `代檢費${excelRec.declaredFee}` });
-                    continue; // 跳過這個記錄，因為它已經有特定的 reason
-                }
+                let reason = '';
 
-                // 檢查此 excel 記錄是否在 txtRecords 中有完全匹配的
-                const foundInTxt = txtRecords.some(txtRec => 
+                // 檢查是否存在於 txtRecords 中
+                const foundInTxt = txtRecords.some(txtRec =>
                     txtRec.idNumber === excelRec.idCard && txtRec.amount === excelRec.declaredAmount
                 );
                 if (!foundInTxt) {
-                    let reason = '未找到';
-                    // 檢查是否有身分證相符但金額不符的記錄
+                    reason = '未找到';
                     const idCardMatchExists = txtRecords.some(txtRec => txtRec.idNumber === excelRec.idCard);
                     if (idCardMatchExists) {
                         reason = '金額不符';
                     }
-                    excelOnly.push({ ...excelRec, reason: reason });
                 }
+
+                // 申報金額為0但代檢費不為0
+                if (excelRec.declaredAmount === 0 && excelRec.declaredFee > 0) {
+                    reason = reason ? `${reason}，代檢費${excelRec.declaredFee}` : `代檢費${excelRec.declaredFee}`;
+                }
+
+                if (reason) {
+                    excelOnly.push({ ...excelRec, reason });
+                }
+
             }
 
             // 呼叫顯示結果的函式
