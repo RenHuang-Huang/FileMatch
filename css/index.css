@@ -469,6 +469,11 @@
         tr.agency-fee-row td {
             background-color: #fff8e1;
         }
+        /* 身分證不合法 (格式或檢查碼錯誤)：該格淺紅底色 */
+        table td.invalid-id,
+        table.dataTable tbody td.invalid-id {
+            background-color: #fbebeb;
+        }
 
         /* 列印專用樣式 (直接按 Ctrl+P 時使用；「列印結果」按鈕會另開視窗) */
         @media print {

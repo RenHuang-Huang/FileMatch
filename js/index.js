@@ -103,6 +103,45 @@
             return `${String(+y - 1911).padStart(3, '0')}.${m}.${d}`;
         }
 
+        // 英文字母對應的數值 (身分證／居留證檢查碼用)
+        const ID_LETTER_VALUES = {
+            A: 10, B: 11, C: 12, D: 13, E: 14, F: 15, G: 16, H: 17, I: 34, J: 18, K: 19, L: 20, M: 21,
+            N: 22, O: 35, P: 23, Q: 24, R: 25, S: 26, T: 27, U: 28, V: 29, W: 32, X: 30, Y: 31, Z: 33
+        };
+
+        /**
+         * 檢查身分證／居留證號是否合法 (格式 + 檢查碼)。
+         * - 國民身分證：1 英 + [1|2] + 8 碼
+         * - 新式居留證 (2021 起)：1 英 + [8|9] + 8 碼
+         * - 舊式居留證：2 英 + 8 碼 (第 2 個字母取對應數值的個位數)
+         * 加權：字母十位 ×1、個位 ×9，其後 8 碼依序 ×8~×1，最後一碼 ×1，總和可被 10 整除。
+         * @param {string} id
+         * @returns {boolean}
+         */
+        function isValidTaiwanId(id) {
+            const value = String(id || '').trim().toUpperCase();
+            let digits;
+            if (/^[A-Z][1289]\d{8}$/.test(value)) {
+                digits = value.slice(1).split('').map(Number);
+            } else if (/^[A-Z][A-D]\d{8}$/.test(value)) {
+                digits = [ID_LETTER_VALUES[value[1]] % 10, ...value.slice(2).split('').map(Number)];
+            } else {
+                return false;
+            }
+            const first = ID_LETTER_VALUES[value[0]];
+            const weights = [8, 7, 6, 5, 4, 3, 2, 1, 1];
+            const sum = Math.floor(first / 10) + (first % 10) * 9
+                + digits.reduce((acc, d, i) => acc + d * weights[i], 0);
+            return sum % 10 === 0;
+        }
+
+        /** 身分證不合法時，該格標淺紅底色並加上說明。 */
+        function markInvalidId(cell, id) {
+            if (isValidTaiwanId(id)) return;
+            cell.classList.add('invalid-id');
+            cell.title = id ? '身分證／居留證號格式或檢查碼不正確' : '沒有身分證號';
+        }
+
         /**
          * HTML 跳脫，避免檔案內容 (例如診所名稱) 被當成 HTML 寫入列印視窗。
          */
@@ -639,7 +678,9 @@
                 row.insertCell().textContent = record.reason;
                 row.insertCell().textContent = record.medicalRecordId;
                 row.insertCell().textContent = record.name;
-                row.insertCell().textContent = record.idCard;
+                const idCell = row.insertCell();
+                idCell.textContent = record.idCard;
+                markInvalidId(idCell, record.idCard);
                 row.insertCell().textContent = record.birthDate;
                 row.insertCell().textContent = record.inspectionDate;
                 const amountCell = row.insertCell();
@@ -786,6 +827,7 @@
                 table th { background-color: #f0f0f0; font-weight: 600; }
                 table td.amount-cell { text-align: right; }
                 tr.agency-fee-row td { background-color: #fff8e1; }
+                table td.invalid-id { background-color: #fbebeb; }
                 tr.batch-health-total td { font-weight: 700; background-color: #f0f0f0; }
                 .result-block:first-child > table:first-child { margin-top: 16px; }
                 .result-block table tbody tr:nth-child(even) { background-color: #f8f9fa; }
@@ -1207,7 +1249,8 @@
 
             const dataTableColumns = TXT_COLUMN_CONFIG.map(col => ({
                 title: col.header,
-                data: col.key
+                data: col.key,
+                ...(col.key === 'idNumber' ? { createdCell: (cell, value) => markInvalidId(cell, value) } : {})
             }));
 
             txtRawDataTableInstance = $('#txtRawDataTable').DataTable({
