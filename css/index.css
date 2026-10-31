@@ -1,9 +1,24 @@
 
         /* 自定義樣式，覆蓋或補充 Tailwind */
+        :root {
+            --font-ui: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+            --c-text: #333;
+            --c-heading: #2c3e50;
+            --c-primary: #1a73e8;
+            --c-primary-hover: #1765cc;
+            --c-teal: #117a8b;        /* 原 #17a2b8 白字對比僅 3.0:1，加深到 AA */
+            --c-teal-hover: #0d6270;
+            --c-warn-text: #c53030;   /* 原 #f56565 對白底僅 3.0:1 */
+            --c-focus: #1a73e8;
+        }
+        ::selection {
+            background: #cfe2ff;
+            color: #1a1a1a;
+        }
         body {
-            font-family: 'Inter', sans-serif; /* 使用 Inter 字體 */
+            font-family: var(--font-ui); /* 以繁中系統字為主，Inter 實際並未載入 */
             background-color: #f4f7f6;
-            color: #333;
+            color: var(--c-text);
             display: flex;
             justify-content: center;
             align-items: flex-start;
@@ -96,11 +111,7 @@
             transform: translateY(-1px);
         }
         .file-list {
-            margin-top: 10px;
-            padding: 8px;
-            background-color: #f8f9fa;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            margin-top: 8px;
             max-height: 150px;
             overflow-y: auto;
         }
@@ -108,15 +119,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 5px 8px;
-            margin-bottom: 5px;
-            background-color: #ffffff;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
+            padding: 6px 4px;
+            border-bottom: 1px solid #e9ecef;
             font-size: 14px;
         }
-        .file-item:last-child {
-            margin-bottom: 0;
+        .file-list:empty {
+            display: none;
         }
         .file-name {
             flex-grow: 1;
@@ -175,21 +183,19 @@
             display: flex; /* 使用 flexbox 居中文字 */
             justify-content: center;
             align-items: center;
-            background-color: #1a73e8; /* Google Blue */
-            background-image: linear-gradient(to right, #1a73e8, #3c82f6); /* 藍色漸變 */
+            background-color: var(--c-primary);
             opacity: 1; /* 完全不透明 */
             cursor: pointer; /* 允許點擊 */
-            box-shadow: 0 10px 30px rgba(26, 115, 232, 0.4); /* 更明顯的陰影 */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
         }
         button#compareBtn.highlight-button:hover {
-            background-color: #1765cc; /* 懸停時顏色變深 */
-            background-image: linear-gradient(to right, #1765cc, #3367d6); /* 懸停時漸變變深 */
+            background-color: var(--c-primary-hover);
             transform: translateY(-2px);
-            box-shadow: 0 12px 35px rgba(26, 115, 232, 0.5); /* 懸停時更明顯的陰影 */
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
         }
         button#compareBtn.highlight-button:active {
             transform: translateY(0);
-            box-shadow: 0 6px 20px rgba(26, 115, 232, 0.3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
         }
 
         /* 檢視資料按鈕的樣式 (次要按鈕) */
@@ -209,8 +215,11 @@
             font-size: 15px; /* 調整次要按鈕的字體大小 */
         }
         
-        #printResultsBtn{
-            background-color: #17a2b8;
+        #printResultsBtn {
+            background-color: var(--c-teal);
+        }
+        #printResultsBtn:hover:not(:disabled) {
+            background-color: var(--c-teal-hover);
         }
         .view-data-buttons button:hover {
             background-color: #5a6268; /* 懸停時顏色變深 */
@@ -311,8 +320,21 @@
             flex-direction: column;
             overflow-y: auto; /* 允許模態視窗內容滾動 */
         }
+        button.close-button {
+            background: none;
+            padding: 2px 10px;
+            line-height: 1;
+            opacity: 1;
+            box-shadow: none;
+            border-radius: 6px;
+        }
+        button.close-button:hover {
+            background: #f1f3f5;
+            transform: none;
+            box-shadow: none;
+        }
         .close-button {
-            color: #aaa;
+            color: #6c757d;
             position: absolute;
             top: 10px;
             right: 20px;
@@ -338,7 +360,7 @@
         
         /* Print button 樣式 */
         .print-button {
-            background-color: #17a2b8; /* 藍綠色 */
+            background-color: var(--c-teal);
             color: white;
             border: none;
             border-radius: 6px;
@@ -353,7 +375,7 @@
             right: 60px; /* 位於關閉按鈕左側 */
         }
         .print-button:hover {
-            background-color: #138496;
+            background-color: var(--c-teal-hover);
             transform: translateY(-1px);
         }
         .print-button:active {
@@ -506,13 +528,8 @@
 
         /* 計算結果區塊 */
         .calculation-results {
-            background-color: #e6f7ff; /* 淡藍色背景 */
-            border: 1px solid #b3e0ff;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            margin-top: 12px;
+            margin-bottom: 8px;
         }
         .calculation-results h3 {
             color: #0056b3;
@@ -526,14 +543,12 @@
             gap: 15px;
         }
         .calculation-item {
-            background-color: #ffffff;
-            border: 1px solid #e0e0e0;
+            background-color: #f6f9fc;
             border-radius: 8px;
             padding: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
         .calculation-item label {
             font-weight: 600;
@@ -542,6 +557,7 @@
         }
         .calculation-item .value {
             font-size: 1.4em;
+            font-variant-numeric: tabular-nums;
             color: #007bff;
             font-weight: 700;
             word-break: break-all; /* 防止數字過長溢出 */
@@ -570,12 +586,113 @@
             cursor: pointer;
         }
         .action-buttons-modal .export-button {
-            background-color: #17a2b8; /* 藍綠色 */
+            background-color: var(--c-teal);
         }
         .action-buttons-modal .export-button:hover {
-            background-color: #138496;
+            background-color: var(--c-teal-hover);
         }
         .text-red-500 {
-            color: #f56565;
+            color: var(--c-warn-text);
             font-weight: bold;
+        }
+
+        /* ===== 按鈕基底 =====
+           Tailwind 執行時注入的 preflight 會把 button 的背景設為透明、文字色改為 inherit，
+           蓋掉上面同權重的 button { } 規則，所以這裡用 id / class 權重明確指定 */
+        button#compareBtn {
+            background-color: var(--c-primary);
+            color: #fff;
+            width: 140px;
+            height: 48px;
+            font-size: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 0;
+        }
+        .view-data-buttons button,
+        .action-buttons-modal button {
+            color: #fff;
+        }
+        .view-data-buttons button:not(#openCalcModalBtn):not(#printResultsBtn) {
+            background-color: #5f676e; /* 原 #6c757d，白字對比提高 */
+        }
+        button.remove-file {
+            opacity: 1;
+            cursor: pointer;
+            box-shadow: none;
+            padding: 2px 8px;
+            background-color: #c82333;
+        }
+        button.remove-file:hover {
+            background-color: #a71d2a;
+            transform: none;
+        }
+
+        /* ===== 共用狀態 ===== */
+
+        /* 停用狀態：原本 .view-data-buttons button 設了 opacity: 1，停用的按鈕看起來跟可按的一樣 */
+        button:disabled,
+        .view-data-buttons button:disabled,
+        button#openCalcModalBtn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        button:disabled:hover,
+        .view-data-buttons button:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* 鍵盤焦點：所有可操作元件都要看得到 */
+        button:focus-visible,
+        input:focus-visible,
+        .hide-row-checkbox-cell label:focus-within {
+            outline: 2px solid var(--c-focus);
+            outline-offset: 2px;
+        }
+
+        /* 表格數字對齊 */
+        table td {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 「隱藏金額為 0」旁顯示目前隱藏的筆數 */
+        .hidden-count {
+            color: #6c757d;
+            margin-left: 4px;
+        }
+
+        /* 提示訊息：置於下方，不擋住點擊 */
+        .message-box {
+            position: fixed;
+            left: 50%;
+            bottom: 32px;
+            transform: translateX(-50%);
+            background-color: #2b2f33;
+            color: #fff;
+            padding: 14px 24px;
+            border-radius: 8px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+            z-index: 1100;
+            font-size: 1rem;
+            text-align: center;
+            max-width: min(90vw, 640px);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.25s ease-out;
+        }
+        .message-box.show {
+            opacity: 1;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .message-box {
+                transition: none;
+            }
+            button, button:hover {
+                transition: none;
+                transform: none;
+            }
         }

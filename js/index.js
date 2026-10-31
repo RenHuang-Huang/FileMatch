@@ -432,6 +432,7 @@
             // 呼叫顯示結果的函式
             displayResults(txtOnly, document.querySelector('#txtMissingInExcel tbody'), document.getElementById('hideZeroTxtAmount'));
             displayResults(excelOnly, document.querySelector('#excelMissingInTxt tbody'), document.getElementById('hideZeroExcelAmount'));
+            updateHiddenCounts();
 
             if (txtOnly.length === 0 && excelOnly.length === 0) {
                 showMessageBox('比對完成！兩份文件所有身分證、檢驗日期和申報金額的資料均匹配。');
@@ -552,6 +553,7 @@
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.classList.add('hide-row-checkbox'); // 添加 class 以便選擇
+                checkbox.setAttribute('aria-label', `隱藏此列：${record.name} ${record.inspectionDate}`);
                 label.appendChild(checkbox);
                 checkboxCell.appendChild(label); // 將 label 添加到 td 中
 
@@ -612,6 +614,7 @@
             rows.forEach(row => {
                 updateRowVisibility(row, hideZeroAmountCheckbox);
             });
+            updateHiddenCounts();
         }
 
         /**
@@ -645,7 +648,7 @@
             printWindow.document.write('<style>');
             printWindow.document.write(`
                 body { display: block; background: #fff; padding: 0; margin: 0; min-height: 0;
-                       font-family: Arial, sans-serif, '微軟正黑體', 'Microsoft JhengHei'; }
+                       font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif; }
                 h2 { font-size: 15px; justify-content: center; text-align: center; margin: 4px 0 8px; }
                 table { min-width: 0; border-radius: 0; overflow: visible; box-shadow: none; font-size: 12px; }
                 table th, table td { padding: 5px 6px; }
@@ -719,6 +722,8 @@
             // 重置讀取資料總數顯示
             document.getElementById('txtReadCount').textContent = '(讀取 0 筆資料)';
             document.getElementById('excelReadCount').textContent = '(讀取 0 筆資料)';
+            document.getElementById('hideZeroTxtCount').textContent = '';
+            document.getElementById('hideZeroExcelCount').textContent = '';
         }
 
         /**
@@ -727,35 +732,46 @@
          */
         function showMessageBox(message) {
             const messageBox = document.createElement('div');
-            messageBox.className = 'message-box'; // 列印時隱藏
-            messageBox.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background-color: #333;
-                color: white;
-                padding: 20px 30px;
-                border-radius: 8px;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-                z-index: 1000;
-                font-size: 1.1em;
-                text-align: center;
-                opacity: 0;
-                transition: opacity 0.3s ease-in-out;
-                max-width: 80%;
-            `;
+            messageBox.className = 'message-box'; // 樣式在 index.css；列印時隱藏
+            messageBox.setAttribute('role', 'status');
+            messageBox.setAttribute('aria-live', 'polite');
             messageBox.textContent = message;
             document.body.appendChild(messageBox);
 
+            requestAnimationFrame(() => messageBox.classList.add('show'));
             setTimeout(() => {
-                messageBox.style.opacity = '1';
-            }, 10);
+                messageBox.classList.remove('show');
+                setTimeout(() => messageBox.remove(), 300);
+            }, 3500);
+        }
 
-            setTimeout(() => {
-                messageBox.style.opacity = '0';
-                messageBox.addEventListener('transitionend', () => messageBox.remove());
-            }, 3000);
+        // --- Modal 共用：Esc / 點背景關閉、開啟時移動焦點、關閉後還原焦點 ---
+        let lastFocusedBeforeModal = null;
+
+        function showModal(modal) {
+            lastFocusedBeforeModal = document.activeElement;
+            modal.style.display = 'flex';
+            const closeBtn = modal.querySelector('.close-button');
+            if (closeBtn) closeBtn.focus();
+        }
+
+        function restoreFocusAfterModal() {
+            if (lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === 'function') {
+                lastFocusedBeforeModal.focus();
+            }
+            lastFocusedBeforeModal = null;
+        }
+
+        /**
+         * 更新「隱藏申報金額為 0 的資料」旁的已隱藏筆數。
+         */
+        function updateHiddenCounts() {
+            [['txtMissingInExcel', 'hideZeroTxtAmount', 'hideZeroTxtCount'],
+             ['excelMissingInTxt', 'hideZeroExcelAmount', 'hideZeroExcelCount']].forEach(([tableId, checkboxId, countId]) => {
+                const zeroRows = document.querySelectorAll(`#${tableId} tbody tr[data-amount-zero="true"]`).length;
+                const checked = document.getElementById(checkboxId).checked;
+                document.getElementById(countId).textContent = zeroRows > 0 ? `（${checked ? '已隱藏' : '共'} ${zeroRows} 筆）` : '';
+            });
         }
 
         // --- Calculation Modal Functions ---
@@ -780,7 +796,7 @@
             // 執行金額計算顯示
             updateAllCalculationsForCalcModal();
 
-            calcModal.style.display = 'flex';
+            showModal(calcModal);
         }
 
         /**
@@ -788,6 +804,7 @@
          */
         function closeCalcModal() {
             document.getElementById('calcModal').style.display = 'none';
+            restoreFocusAfterModal();
             // 關閉時重置折扣百分比
             document.getElementById('calcDiscountPercentage').value = '15';
         }
@@ -803,7 +820,7 @@
             printWindow.document.write(`
                 body { 
                     margin: 20px; 
-                    font-family: Arial, sans-serif, '微軟正黑體', 'Microsoft JhengHei'; 
+                    font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif; 
                     line-height: 1.6;
                 }
                 .print-calc-title { 
@@ -999,7 +1016,7 @@
                 }
             });
 
-            txtRawModal.style.display = 'flex';
+            showModal(txtRawModal);
         }
 
         /**
@@ -1007,6 +1024,7 @@
          */
         function closeTxtRawModal() {
             document.getElementById('txtRawModal').style.display = 'none';
+            restoreFocusAfterModal();
             if (txtRawDataTableInstance) {
                 txtRawDataTableInstance.destroy();
                 txtRawDataTableInstance = null;
@@ -1097,6 +1115,20 @@
             openTxtRawModalBtn.addEventListener('click', openTxtRawModal);
             closeTxtRawModalBtn.addEventListener('click', closeTxtRawModal);
             exportTxtRawExcelBtn.addEventListener('click', exportTxtRawTableToExcel); // 新增匯出按鈕事件監聽器
+
+            // 點背景或按 Esc 關閉模態視窗
+            const modalClosers = { calcModal: closeCalcModal, txtRawModal: closeTxtRawModal };
+            Object.entries(modalClosers).forEach(([id, close]) => {
+                document.getElementById(id).addEventListener('click', e => {
+                    if (e.target.id === id) close();
+                });
+            });
+            document.addEventListener('keydown', e => {
+                if (e.key !== 'Escape') return;
+                Object.entries(modalClosers).forEach(([id, close]) => {
+                    if (document.getElementById(id).style.display === 'flex') close();
+                });
+            });
 
             /**
              * 格式化檔案大小

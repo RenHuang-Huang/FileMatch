@@ -34,12 +34,12 @@
                 <input type="file" id="excelFile" accept="application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple>
                 <div id="excelFileList" class="file-list"></div>
             </div>
-            <button id="compareBtn" disabled>開始比對</button> <!-- 預設禁用 -->
+            <button type="button" id="compareBtn" disabled>開始比對</button> <!-- 預設禁用 -->
             <div class="view-data-buttons">
-                <button id="openCalcModalBtn" disabled>計算成健金額</button> <!-- 新增按鈕，預設禁用 -->
-                <button id="printResultsBtn" disabled>列印結果</button> <!-- 新增列印按鈕 -->
-                <button id="openTxtRawModalBtn" disabled>檢視 TXT 原始資料</button> <!-- 新增檢視 TXT 原始資料按鈕 -->
-                <button id="unhideAllBtn" disabled>取消隱藏被勾選資料</button> <!-- 修改按鈕文字 -->
+                <button type="button" id="openCalcModalBtn" disabled>計算成健金額</button> <!-- 新增按鈕，預設禁用 -->
+                <button type="button" id="printResultsBtn" disabled>列印結果</button> <!-- 新增列印按鈕 -->
+                <button type="button" id="openTxtRawModalBtn" disabled>檢視 TXT 原始資料</button> <!-- 新增檢視 TXT 原始資料按鈕 -->
+                <button type="button" id="unhideAllBtn" disabled>取消隱藏被勾選資料</button> <!-- 修改按鈕文字 -->
             </div>
         </div>
 
@@ -47,7 +47,7 @@
             <h2>【樓下TXT】申報對帳(樓下)檔中存在，但代檢費對帳單(樓上)中不存在的資料 <span id="txtReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
             <div class="hide-zero-amount-checkbox-group">
                 <input type="checkbox" id="hideZeroTxtAmount"> <!-- 移除 checked 屬性 -->
-                <label for="hideZeroTxtAmount">隱藏申報金額為 0 的資料</label>
+                <label for="hideZeroTxtAmount">隱藏申報金額為 0 的資料<span id="hideZeroTxtCount" class="hidden-count"></span></label>
             </div>
             <table id="txtMissingInExcel">
                 <thead>
@@ -70,7 +70,7 @@
             <h2 class="mt-8">【樓上EXCEL】代檢費對帳單(樓上)中存在，但申報對帳(樓下)檔中不存在的資料 <span class="text-red-500 screen-only">[預設隱藏金額為0的資料]</span> <span id="excelReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
             <div class="hide-zero-amount-checkbox-group">
                 <input type="checkbox" id="hideZeroExcelAmount" checked> <!-- 預設勾選 -->
-                <label for="hideZeroExcelAmount">隱藏申報金額為 0 的資料</label>
+                <label for="hideZeroExcelAmount">隱藏申報金額為 0 的資料<span id="hideZeroExcelCount" class="hidden-count"></span></label>
             </div>
             <table id="excelMissingInTxt">
                 <thead>
@@ -93,13 +93,13 @@
     </div>
 
     <!-- 計算成健金額模態視窗 -->
-    <div id="calcModal" class="modal">
+    <div id="calcModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="calcModalTitle">
         <div class="modal-content">
             <div class="modal-header">
-                <span class="close-button" id="closeCalcModalBtn">&times;</span>
-                <button class="print-button" id="printCalcModalBtn">列印</button>
+                <button type="button" class="close-button" id="closeCalcModalBtn" aria-label="關閉">&times;</button>
+                <button type="button" class="print-button" id="printCalcModalBtn">列印</button>
             </div>
-            <h3 class="text-xl font-bold mb-4 text-center">成健金額計算工具</h3>
+            <h3 id="calcModalTitle" class="text-xl font-bold mb-4 text-center">成健金額計算工具</h3>
 
             <div class="calculation-results">
                 <h3>金額計算結果</h3>
@@ -131,12 +131,12 @@
     </div>
 
     <!-- 新增 TXT 原始資料模態視窗 -->
-    <div id="txtRawModal" class="modal">
+    <div id="txtRawModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="txtRawModalTitle">
         <div class="modal-content">
-            <span class="close-button" id="closeTxtRawModalBtn">&times;</span>
-            <h3 class="text-xl font-bold mb-4 text-center">TXT 原始資料 (空白鍵解析)</h3>
+            <button type="button" class="close-button" id="closeTxtRawModalBtn" aria-label="關閉">&times;</button>
+            <h3 id="txtRawModalTitle" class="text-xl font-bold mb-4 text-center">TXT 原始資料 (空白鍵解析)</h3>
             <div class="action-buttons-modal">
-                <button id="exportTxtRawExcelBtn" class="export-button">匯出 Excel</button>
+                <button type="button" id="exportTxtRawExcelBtn" class="export-button">匯出 Excel</button>
             </div>
             <div class="overflow-auto flex-grow mt-4">
                 <table id="txtRawDataTable" class="w-full text-sm display">
