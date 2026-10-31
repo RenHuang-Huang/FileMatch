@@ -194,6 +194,7 @@
 
                 // 8. 就醫日期 (不轉換為西元年)
                 record.visitDate = tokens[tokenIndex++] || '';
+                record.visitDateKey = normalizeDate(record.visitDate); // 比對用 (YYYY-MM-DD)
 
                 // 9. 健卡序號
                 // 直接按順序解析，不進行格式比對
@@ -289,6 +290,7 @@
             const inspectionDateColIndex = headerRow.indexOf('檢驗日期');
             const amountColIndex = headerRow.indexOf('申報金額');
             const declaredFeeColIndex = headerRow.indexOf('代檢費'); // 代檢費欄位
+            const visitDateColIndex = headerRow.indexOf('就醫日期'); // 選填：有此欄位時優先用它比對日期
 
             if (medicalRecordIdColIndex === -1 || nameColIndex === -1 ||
                 birthDateColIndex === -1 || inspectionDateColIndex === -1 ||
@@ -312,6 +314,9 @@
                         : (rawBirthDate || '').toString().trim();
                     const inspectionDateKey = normalizeDate(rawInspectionDate);
                     const inspectionDate = toRocDate(inspectionDateKey, (rawInspectionDate || '').toString().trim());
+                    const rawVisitDate = visitDateColIndex === -1 ? '' : row[visitDateColIndex];
+                    const visitDateKey = normalizeDate(rawVisitDate);
+                    const visitDate = toRocDate(visitDateKey, (rawVisitDate || '').toString().trim());
                     const idCard = (row[idCardColIndex] || '').toString().trim();
                     const declaredAmount = parseInt((row[amountColIndex] || '0').toString().trim(), 10);
                     const declaredFee = parseInt((row[declaredFeeColIndex] || '0').toString().trim(), 10);
@@ -324,6 +329,8 @@
                             birthDate: birthDate,
                             inspectionDate: inspectionDate,
                             inspectionDateKey: inspectionDateKey,
+                            visitDate: visitDate,
+                            visitDateKey: visitDateKey,
                             declaredAmount: declaredAmount,
                             declaredFee: isNaN(declaredFee) ? 0 : declaredFee
                         });
@@ -361,8 +368,22 @@
             return toggle ? toggle.checked : loadCompareDateSetting();
         }
 
+        // 最近一次比對實際使用的日期欄位 ('就醫日期' 或 '檢驗日期')；尚未比對時為空
+        let lastDateFieldLabel = '';
+
+        /**
+         * 決定日期要比對哪個欄位：兩邊所有資料都有就醫日期時比就醫日期，
+         * 否則兩邊都改比檢驗日期 (避免拿一邊的就醫日期去比另一邊的檢驗日期)。
+         */
+        function chooseDateField(txtRecords, excelRecords) {
+            const allHaveVisitDate = [...txtRecords, ...excelRecords].every(r => r.visitDateKey);
+            return allHaveVisitDate ? 'visit' : 'inspection';
+        }
+
         function compareRuleLabel() {
-            return isCompareDateEnabled() ? '身分證 ＋ 檢驗日期 ＋ 申報金額' : '身分證 ＋ 申報金額';
+            if (!isCompareDateEnabled()) return '身分證 ＋ 申報金額';
+            const dateLabel = lastDateFieldLabel || '就醫日期（無則檢驗日期）';
+            return `身分證 ＋ ${dateLabel} ＋ 申報金額`;
         }
 
         function updateCompareRuleText() {
@@ -381,10 +402,20 @@
             const excelOnly = [];
             const compareDate = isCompareDateEnabled();
 
+            // 日期欄位：優先就醫日期，任一邊沒有就醫日期時改用檢驗日期
+            const dateField = chooseDateField(txtRecords, excelRecords);
+            const dateLabel = dateField === 'visit' ? '就醫日期' : '檢驗日期';
+            lastDateFieldLabel = compareDate ? dateLabel : '';
+            updateCompareRuleText();
+            const displayDateOf = rec => dateField === 'visit' ? rec.visitDate : rec.inspectionDate;
+
             // 統一兩邊的欄位，比對與顯示都用同一個結構
-            // 檢驗日期優先用正規化後的 key，無法解析時退回原始字串比對；
+            // 檢驗日期無法解析時退回原始字串比對；
             // 未勾選「比對就醫日期」時日期一律視為相同，退回「身分證 + 金額」比對
-            const dateOf = rec => compareDate ? (rec.inspectionDateKey || rec.inspectionDate) : '';
+            const dateOf = rec => {
+                if (!compareDate) return '';
+                return dateField === 'visit' ? rec.visitDateKey : (rec.inspectionDateKey || rec.inspectionDate);
+            };
             const toCompare = (rec, source) => source === 'txt'
                 ? { id: rec.idNumber, date: dateOf(rec), amount: rec.amount, rec }
                 : { id: rec.idCard, date: dateOf(rec), amount: rec.declaredAmount, rec };
@@ -415,9 +446,9 @@
                 }
                 const sameAmount = others.filter(o => o.amount === item.amount);
                 if (sameAmount.length > 0) {
-                    return `檢驗日期不符（${otherLabel} ${sameAmount.map(o => o.rec.inspectionDate).join('、')}）`;
+                    return `${dateLabel}不符（${otherLabel} ${sameAmount.map(o => displayDateOf(o.rec)).join('、')}）`;
                 }
-                return '檢驗日期及金額皆不符';
+                return `${dateLabel}及金額皆不符`;
             };
 
             // 建立以「身分證 + 檢驗日期 + 金額」為鍵的 Map，同鍵多筆用陣列保存，配對一筆扣一筆
@@ -760,6 +791,8 @@
             document.getElementById('excelReadCount').textContent = '(讀取 0 筆資料)';
             document.getElementById('hideZeroTxtCount').textContent = '';
             document.getElementById('hideZeroExcelCount').textContent = '';
+            lastDateFieldLabel = '';
+            updateCompareRuleText();
         }
 
         /**
