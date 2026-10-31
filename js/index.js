@@ -405,6 +405,7 @@
             displayResults(txtOnly, document.querySelector('#txtMissingInExcel tbody'), document.getElementById('hideZeroTxtAmount'));
             displayResults(excelOnly, document.querySelector('#excelMissingInTxt tbody'), document.getElementById('hideZeroExcelAmount'));
             updateHiddenCounts();
+            setHint(document.getElementById('cathayHint'), cathayOnlyHint(excelOnly));
 
             if (txtOnly.length === 0 && excelOnly.length === 0) {
                 showMessageBox(`比對完成！兩份文件所有${ruleLabel.replace(/ ＋ /g, '、')}的資料均匹配。`);
@@ -907,6 +908,7 @@
             document.getElementById('hideZeroExcelCount').textContent = '';
             lastDateFieldLabel = '';
             updateCompareRuleText();
+            setHint(document.getElementById('cathayHint'), '');
         }
 
         /**
@@ -977,6 +979,7 @@
             // 申報總額：顯示未經過篩選後資料的金額總和。
             // calcTotalDeclaredAmount 已經是所有 TXT 檔案資料的總金額 (未篩選的總和)。
             calcTotalDeclaredAmountSpan.textContent = calcTotalDeclaredAmount.toLocaleString();
+            calcDiscountPercentageInput.value = loadDiscountSetting();
 
             // 執行金額計算顯示
             updateAllCalculationsForCalcModal();
@@ -990,8 +993,6 @@
         function closeCalcModal() {
             document.getElementById('calcModal').style.display = 'none';
             restoreFocusAfterModal();
-            // 關閉時重置折扣百分比
-            document.getElementById('calcDiscountPercentage').value = '15';
         }
 
         /**
@@ -1117,6 +1118,30 @@
         /**
          * 更新計算模態視窗中所有金額計算結果的顯示。
          */
+        // --- 打折的成數：存在 localStorage，單一的計算視窗與批次總表共用，預設 15% ---
+        const DISCOUNT_STORAGE_KEY = 'fileMatch.discountPercentage';
+        const DEFAULT_DISCOUNT = '15';
+
+        function loadDiscountSetting() {
+            try {
+                const saved = localStorage.getItem(DISCOUNT_STORAGE_KEY);
+                const n = parseFloat(saved);
+                return saved !== null && !isNaN(n) && n >= 0 && n <= 100 ? saved : DEFAULT_DISCOUNT;
+            } catch (e) {
+                return DEFAULT_DISCOUNT; // 無痕模式或封鎖儲存時，使用預設值
+            }
+        }
+
+        function saveDiscountSetting(value) {
+            const n = parseFloat(value);
+            if (isNaN(n) || n < 0 || n > 100) return; // 輸入到一半或超出範圍時不存
+            try {
+                localStorage.setItem(DISCOUNT_STORAGE_KEY, String(value));
+            } catch (e) {
+                console.warn('無法儲存打折成數:', e);
+            }
+        }
+
         /**
          * 成健金額計算 (單一的計算視窗與批次總表共用)。
          * 成健 = 分類 A3 且健卡序號 IC 開頭；非成健 = 申報總額 - 成健；預扣額 = 非成健 × 打折成數。
@@ -1311,7 +1336,10 @@
             openCalcModalBtn.addEventListener('click', openCalcModal);
             closeCalcModalBtn.addEventListener('click', closeCalcModal);
             printCalcModalBtn.addEventListener('click', printCalcModal); // 列印事件監聽器
-            calcDiscountPercentageInput.addEventListener('input', updateAllCalculationsForCalcModal);
+            calcDiscountPercentageInput.addEventListener('input', () => {
+                saveDiscountSetting(calcDiscountPercentageInput.value);
+                updateAllCalculationsForCalcModal();
+            });
 
             // TXT 原始資料模態視窗的事件監聽器
             openTxtRawModalBtn.addEventListener('click', openTxtRawModal);
@@ -1442,8 +1470,22 @@
 
         const batchState = { files: [], groups: [], hasResults: false, runId: 0, rows: [] };
 
-        // 國泰表下方的畫面提示 (不列印)。依 2–8 月正式檔，國泰有、診所沒有的資料中約 10.8% 出現在上個月的診所檔
-        const CATHAY_ONLY_HINT = '提示：國泰有、診所沒有的資料，約一成是上個月診所已申報、本月才出現在國泰對帳單，可先查上月的申報檔。';
+        /**
+         * 國泰表下方的畫面提示 (不列印)：本表需核對的筆數 (申報金額 > 0；0 元不申報的不算)。
+         * 依 2–8 月正式檔，國泰有、診所沒有的資料中約 10.8% 是上個月診所已申報。
+         * @returns {string} 提示文字；沒有需核對的資料時回傳空字串。
+         */
+        function cathayOnlyHint(excelOnly) {
+            const count = excelOnly.filter(r => r.amount > 0).length;
+            return count > 0
+                ? `提示：國泰有、診所沒有（申報金額大於 0）共 ${count.toLocaleString()} 筆，其中可能有部分是上個月診所已申報，可先查上月申報檔。`
+                : '';
+        }
+
+        function setHint(el, text) {
+            el.textContent = text;
+            el.hidden = !text;
+        }
 
         /** 檔名開頭的數字 → 3 碼診所代碼；沒有數字開頭回傳 null。 */
         function clinicCodeOf(fileName) {
@@ -1662,7 +1704,7 @@
                 if (t.suffix === 'excel') {
                     const hint = document.createElement('p');
                     hint.className = 'compare-hint screen-only';
-                    hint.textContent = CATHAY_ONLY_HINT;
+                    setHint(hint, cathayOnlyHint(t.rows));
                     section.appendChild(hint);
                 }
 
@@ -1684,8 +1726,8 @@
             container.appendChild(section);
         }
 
-        /** 批次的打折成數，預設 15%，與單一診所的計算視窗相同。 */
-        let batchDiscountPercentage = '15';
+        /** 批次的打折成數：沿用 localStorage 的設定 (與單一診所的計算視窗共用)。 */
+        let batchDiscountPercentage = DEFAULT_DISCOUNT;
 
         function batchHealthRows() {
             return batchState.rows.filter(r => !r.error).map(r => ({
@@ -1720,10 +1762,12 @@
                 <div class="batch-health-table-wrap"></div>`;
             const input = container.querySelector('#batchDiscount');
             const wrap = container.querySelector('.batch-health-table-wrap');
+            batchDiscountPercentage = loadDiscountSetting();
             input.value = batchDiscountPercentage;
             wrap.innerHTML = batchHealthTableHtml();
             input.addEventListener('input', () => {
                 batchDiscountPercentage = input.value;
+                saveDiscountSetting(input.value);
                 wrap.innerHTML = batchHealthTableHtml();
             });
         }

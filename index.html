@@ -94,7 +94,7 @@
             </table>
             <br/>
             <h2 class="mt-8">【國泰EXCEL】代檢費對帳單(國泰)中存在，但申報對帳(診所)檔中不存在的資料 <span class="text-red-500 screen-only">[預設隱藏金額為0的資料]</span> <span id="excelReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
-            <p class="compare-hint screen-only">提示：國泰有、診所沒有的資料，約一成是上個月診所已申報、本月才出現在國泰對帳單，可先查上月的申報檔。</p>
+            <p id="cathayHint" class="compare-hint screen-only" hidden></p>
             <div class="hide-zero-amount-checkbox-group">
                 <input type="checkbox" id="hideZeroExcelAmount" checked> <!-- 預設勾選 -->
                 <label for="hideZeroExcelAmount">隱藏申報金額為 0 的資料<span id="hideZeroExcelCount" class="hidden-count"></span></label>
