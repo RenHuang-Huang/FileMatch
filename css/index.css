@@ -474,6 +474,12 @@
         table.dataTable tbody td.invalid-id {
             background-color: #fbebeb;
         }
+        /* 瀏覽器預設不印背景色：黃底、紅底強制印出 (直接 Ctrl+P 時) */
+        tr.agency-fee-row td,
+        table td.invalid-id {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
 
         /* 列印專用樣式 (直接按 Ctrl+P 時使用；「列印結果」按鈕會另開視窗) */
         @media print {

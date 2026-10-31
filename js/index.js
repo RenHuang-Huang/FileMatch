@@ -828,6 +828,8 @@
                 table td.amount-cell { text-align: right; }
                 tr.agency-fee-row td { background-color: #fff8e1; }
                 table td.invalid-id { background-color: #fbebeb; }
+                /* 瀏覽器預設不印背景色：代檢費 (黃底) 與身分證不合法 (紅底) 強制印出 */
+                tr.agency-fee-row td, table td.invalid-id { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 tr.batch-health-total td { font-weight: 700; background-color: #f0f0f0; }
                 .result-block:first-child > table:first-child { margin-top: 16px; }
                 .result-block table tbody tr:nth-child(even) { background-color: #f8f9fa; }
