@@ -369,7 +369,7 @@
              * 判斷未匹配的原因，並附上對方的值方便核對。
              * @param {Object} item - 本方記錄。
              * @param {Array} others - 對方同身分證的記錄。
-             * @param {string} otherLabel - 對方名稱 (樓上/樓下)。
+             * @param {string} otherLabel - 對方名稱 (國泰/診所)。
              */
             const describeMismatch = (item, others, otherLabel) => {
                 if (!others || others.length === 0) return '未找到';
@@ -402,10 +402,10 @@
                     potentialMatches.shift();
                     if (potentialMatches.length === 0) excelMap.delete(key);
                 } else if (excelKeys.has(key)) {
-                    // 完全相同的資料在樓上存在，但筆數比樓下少
-                    txtOnly.push(toDisplayRow(item.rec, 'txt', '重複資料（樓上筆數較少）'));
+                    // 完全相同的資料在國泰存在，但筆數比診所少
+                    txtOnly.push(toDisplayRow(item.rec, 'txt', '重複資料（國泰筆數較少）'));
                 } else {
-                    txtOnly.push(toDisplayRow(item.rec, 'txt', describeMismatch(item, excelById.get(item.id), '樓上')));
+                    txtOnly.push(toDisplayRow(item.rec, 'txt', describeMismatch(item, excelById.get(item.id), '國泰')));
                 }
             }
 
@@ -415,7 +415,7 @@
                 const rec = item.rec;
                 const reasons = [];
                 if (!txtKeys.has(keyOf(item))) {
-                    reasons.push(describeMismatch(item, txtById.get(item.id), '樓下'));
+                    reasons.push(describeMismatch(item, txtById.get(item.id), '診所'));
                 }
 
                 // 申報金額為 0 但代檢費不為 0：一律列出，且不受「隱藏 0 元」影響
