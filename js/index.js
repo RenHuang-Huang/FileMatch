@@ -55,24 +55,59 @@
         }
 
         /**
-         * 將日期字符串 (YY.MM.DD 或 YYY.MM.DD) 轉換為 YYYY-MM-DD 格式。
-         * @param {string} dateStr - 原始日期字符串。
-         * @returns {string} 轉換後的日期字符串 (YYYY-MM-DD) 或原始字符串（如果格式不匹配）。
+         * 將各種日期格式正規化為 YYYY-MM-DD，供比對使用。
+         * 支援：民國/西元年 + 任意分隔符 (113.05.10、113/5/10、2024-05-10、113年5月10日)、
+         *       無分隔數字 (1130510 民國、20240510 西元)、Excel 日期序號、Date 物件。
+         * @param {*} value - 原始日期值。
+         * @returns {string} YYYY-MM-DD；無法解析時回傳空字串。
          */
-        function convertDateToISO(dateStr) {
-            const parts = dateStr.split('.');
-            if (parts.length === 3) {
-                let year = parseInt(parts[0], 10);
-                const month = parts[1].padStart(2, '0');
-                const day = parts[2].padStart(2, '0');
+        function normalizeDate(value) {
+            if (value === null || value === undefined || value === '') return '';
+            let y, m, d;
 
-                // 處理民國年 (YY.MM.DD) 或西元年 (YYY.MM.DD)
-                if (year < 1911) { // 假設小於1911的是民國年
-                    year += 1911;
+            if (value instanceof Date && !isNaN(value)) {
+                y = value.getFullYear(); m = value.getMonth() + 1; d = value.getDate();
+            } else if (typeof value === 'number' && value > 0 && value < 100000) {
+                // Excel 日期序號 (例如 45422 = 2024-05-10)
+                const parsed = XLSX.SSF.parse_date_code(value);
+                if (!parsed) return '';
+                y = parsed.y; m = parsed.m; d = parsed.d;
+            } else {
+                const str = String(value).trim();
+                const parts = str.split(/[.\/\-\s年月日]+/).filter(Boolean);
+                if (parts.length === 3 && parts.every(p => /^\d+$/.test(p))) {
+                    [y, m, d] = parts.map(p => parseInt(p, 10));
+                } else if (/^\d{8}$/.test(str)) { // 20240510
+                    y = +str.slice(0, 4); m = +str.slice(4, 6); d = +str.slice(6);
+                } else if (/^\d{6,7}$/.test(str)) { // 1130510 或 990510 (民國)
+                    y = +str.slice(0, -4); m = +str.slice(-4, -2); d = +str.slice(-2);
+                } else {
+                    return '';
                 }
-                return `${year}-${month}-${day}`;
             }
-            return dateStr; // 如果格式不匹配，返回原始字符串
+
+            if (y < 1911) y += 1911; // 民國年轉西元
+            if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31)) return '';
+            return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        }
+
+        /**
+         * 將 YYYY-MM-DD 轉為民國格式 YYY.MM.DD，用於畫面與列印統一顯示。
+         * @param {string} isoDate - YYYY-MM-DD。
+         * @param {*} fallback - 無法轉換時顯示的原始值。
+         * @returns {string}
+         */
+        function toRocDate(isoDate, fallback = '') {
+            if (!isoDate) return fallback === null || fallback === undefined ? '' : String(fallback);
+            const [y, m, d] = isoDate.split('-');
+            return `${String(+y - 1911).padStart(3, '0')}.${m}.${d}`;
+        }
+
+        /**
+         * HTML 跳脫，避免檔案內容 (例如診所名稱) 被當成 HTML 寫入列印視窗。
+         */
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
         }
 
         /**
@@ -96,7 +131,7 @@
             }
 
             // 定義正規表達式模式，用於更穩健地識別欄位
-            const idNumberRegex = /^[A-Z]\d{9}|[A-Z]{2}\d{8}$/i;; // 身份證號碼 (1個字母+9個數字)
+            const idNumberRegex = /^([A-Z]\d{9}|[A-Z]{2}\d{8})$/i; // 身分證(1英+9數) 或 舊式居留證(2英+8數)，整段完整比對
             const dateRegex = /\d{2,3}\.\d{2}\.\d{2}/; // 日期 (YY.MM.DD 或 YYY.MM.DD)
             // const healthCardSerialRegex = /^(IC|C)[0-9A-Z]{2}$/i; // 健卡序號 (ICXX 或 CXX)
             const categoryRegex = /^A3$/i; // 分類 (A3)
@@ -181,6 +216,7 @@
 
                 // 12. 檢驗日期 (不轉換為西元年)
                 record.inspectionDate = tokens[tokenIndex++] || '';
+                record.inspectionDateKey = normalizeDate(record.inspectionDate); // 比對用 (YYYY-MM-DD)
 
                 // 13. 點數
                 record.points = parseInt(tokens[tokenIndex++] || '0', 10);
@@ -268,8 +304,14 @@
                 try {
                     const medicalRecordId = (row[medicalRecordIdColIndex] || '').toString().trim();
                     const name = (row[nameColIndex] || '').toString().trim();
-                    const birthDate = (row[birthDateColIndex] || '').toString().trim();
-                    const inspectionDate = (row[inspectionDateColIndex] || '').toString().trim();
+                    // 日期儲存格會是 Excel 序號 (數字)，統一轉成民國格式顯示
+                    const rawBirthDate = row[birthDateColIndex];
+                    const rawInspectionDate = row[inspectionDateColIndex];
+                    const birthDate = typeof rawBirthDate === 'number'
+                        ? toRocDate(normalizeDate(rawBirthDate), rawBirthDate)
+                        : (rawBirthDate || '').toString().trim();
+                    const inspectionDateKey = normalizeDate(rawInspectionDate);
+                    const inspectionDate = toRocDate(inspectionDateKey, (rawInspectionDate || '').toString().trim());
                     const idCard = (row[idCardColIndex] || '').toString().trim();
                     const declaredAmount = parseInt((row[amountColIndex] || '0').toString().trim(), 10);
                     const declaredFee = parseInt((row[declaredFeeColIndex] || '0').toString().trim(), 10);
@@ -281,8 +323,9 @@
                             idCard: idCard,
                             birthDate: birthDate,
                             inspectionDate: inspectionDate,
+                            inspectionDateKey: inspectionDateKey,
                             declaredAmount: declaredAmount,
-                            declaredFee: declaredFee
+                            declaredFee: isNaN(declaredFee) ? 0 : declaredFee
                         });
                     } else {
                         console.warn('無法解析 Excel 行中的關鍵資料，跳過此行:', row);
@@ -304,66 +347,86 @@
             const txtOnly = [];
             const excelOnly = [];
 
-            // 建立以 'id' 和 'amount' 組合為鍵的 Map，方便快速查詢，同時避免重複比對
-            // 這裡我們需要一個能處理多筆相同 id + amount 記錄的結構，因此使用一個陣列來儲存
-            // 建立excel map
-            const excelMap = new Map();
-            for (const rec of excelRecords) {
-                const key = `${rec.idCard}-${rec.declaredAmount}`;
-                if (!excelMap.has(key)) {
-                    excelMap.set(key, []);
+            // 統一兩邊的欄位，比對與顯示都用同一個結構
+            // 檢驗日期優先用正規化後的 key，無法解析時退回原始字串比對
+            const toCompare = (rec, source) => source === 'txt'
+                ? { id: rec.idNumber, date: rec.inspectionDateKey || rec.inspectionDate, amount: rec.amount, rec }
+                : { id: rec.idCard, date: rec.inspectionDateKey || rec.inspectionDate, amount: rec.declaredAmount, rec };
+            const txtItems = txtRecords.map(r => toCompare(r, 'txt'));
+            const excelItems = excelRecords.map(r => toCompare(r, 'excel'));
+            const keyOf = item => `${item.id}|${item.date}|${item.amount}`;
+
+            // 依身分證分組，用來判斷不符的原因
+            const groupById = items => items.reduce((map, item) => {
+                if (!map.has(item.id)) map.set(item.id, []);
+                map.get(item.id).push(item);
+                return map;
+            }, new Map());
+            const txtById = groupById(txtItems);
+            const excelById = groupById(excelItems);
+
+            /**
+             * 判斷未匹配的原因，並附上對方的值方便核對。
+             * @param {Object} item - 本方記錄。
+             * @param {Array} others - 對方同身分證的記錄。
+             * @param {string} otherLabel - 對方名稱 (樓上/樓下)。
+             */
+            const describeMismatch = (item, others, otherLabel) => {
+                if (!others || others.length === 0) return '未找到';
+                const sameDate = others.filter(o => o.date === item.date);
+                if (sameDate.length > 0) {
+                    return `金額不符（${otherLabel} ${sameDate.map(o => o.amount).join('、')}）`;
                 }
-                excelMap.get(key).push(rec);
+                const sameAmount = others.filter(o => o.amount === item.amount);
+                if (sameAmount.length > 0) {
+                    return `檢驗日期不符（${otherLabel} ${sameAmount.map(o => o.rec.inspectionDate).join('、')}）`;
+                }
+                return '檢驗日期及金額皆不符';
+            };
+
+            // 建立以「身分證 + 檢驗日期 + 金額」為鍵的 Map，同鍵多筆用陣列保存，配對一筆扣一筆
+            const excelMap = new Map();
+            for (const item of excelItems) {
+                const key = keyOf(item);
+                if (!excelMap.has(key)) excelMap.set(key, []);
+                excelMap.get(key).push(item);
             }
 
-            // 第一階段比對：從 txtRecords 中尋找 excelRecords
-            for (const txtRec of txtRecords) {
-                const key = `${txtRec.idNumber}-${txtRec.amount}`;
+            const excelKeys = new Set(excelMap.keys());
+
+            // 第一階段比對：從 TXT 尋找 Excel
+            for (const item of txtItems) {
+                const key = keyOf(item);
                 const potentialMatches = excelMap.get(key);
                 if (potentialMatches && potentialMatches.length > 0) {
-                    // 找到身分證-金額匹配的記錄(可能有多筆同樣的身分證和金額)
-                    // 以第一個匹配到的數據，將其從 Map 中移除
                     potentialMatches.shift();
-                    if (potentialMatches.length === 0) {
-                        excelMap.delete(key);
-                    }
+                    if (potentialMatches.length === 0) excelMap.delete(key);
+                } else if (excelKeys.has(key)) {
+                    // 完全相同的資料在樓上存在，但筆數比樓下少
+                    txtOnly.push(toDisplayRow(item.rec, 'txt', '重複資料（樓上筆數較少）'));
                 } else {
-                    // 沒有找到精確匹配，現在判斷具體原因
-                    let reason = '未找到';
-                    // 檢查是否有身分證相符但金額不符的記錄
-                    const idCardMatchExists = excelRecords.some(excelRec => excelRec.idCard === txtRec.idNumber);
-                    if (idCardMatchExists) {
-                        reason = '金額不符';
-                    }
-                    txtOnly.push({ ...txtRec, reason: reason });
+                    txtOnly.push(toDisplayRow(item.rec, 'txt', describeMismatch(item, excelById.get(item.id), '樓上')));
                 }
-                
             }
-            // 第二階段比對：處理 excelMap 中剩餘的記錄，這些都是獨特的記錄或金額不符的記錄
-            for (const excelRec of excelRecords) {
-                let reason = '';
 
-                // 檢查是否存在於 txtRecords 中
-                const foundInTxt = txtRecords.some(txtRec =>
-                    txtRec.idNumber === excelRec.idCard && txtRec.amount === excelRec.declaredAmount
-                );
-                if (!foundInTxt) {
-                    reason = '未找到';
-                    const idCardMatchExists = txtRecords.some(txtRec => txtRec.idNumber === excelRec.idCard);
-                    if (idCardMatchExists) {
-                        reason = '金額不符';
-                    }
+            // 第二階段比對：從 Excel 尋找 TXT
+            const txtKeys = new Set(txtItems.map(keyOf));
+            for (const item of excelItems) {
+                const rec = item.rec;
+                const reasons = [];
+                if (!txtKeys.has(keyOf(item))) {
+                    reasons.push(describeMismatch(item, txtById.get(item.id), '樓下'));
                 }
 
-                // 申報金額為0但代檢費不為0
-                if (excelRec.declaredAmount === 0 && excelRec.declaredFee > 0) {
-                    reason = reason ? `${reason}，代檢費${excelRec.declaredFee}` : `代檢費${excelRec.declaredFee}`;
+                // 申報金額為 0 但代檢費不為 0：一律列出，且不受「隱藏 0 元」影響
+                const hasAgencyFeeOnly = rec.declaredAmount === 0 && rec.declaredFee > 0;
+                if (hasAgencyFeeOnly) {
+                    reasons.push(`代檢費 ${rec.declaredFee}`);
                 }
 
-                if (reason) {
-                    excelOnly.push({ ...excelRec, reason });
+                if (reasons.length > 0) {
+                    excelOnly.push(toDisplayRow(rec, 'excel', reasons.join('，'), hasAgencyFeeOnly));
                 }
-
             }
 
             // 呼叫顯示結果的函式
@@ -371,7 +434,7 @@
             displayResults(excelOnly, document.querySelector('#excelMissingInTxt tbody'), document.getElementById('hideZeroExcelAmount'));
 
             if (txtOnly.length === 0 && excelOnly.length === 0) {
-                showMessageBox('比對完成！兩份文件所有身分證和申報金額的資料均匹配。');
+                showMessageBox('比對完成！兩份文件所有身分證、檢驗日期和申報金額的資料均匹配。');
             } else if (txtOnly.length > 0 || excelOnly.length > 0) {
                 showMessageBox('比對完成！請查看下方表格，找出未匹配的資料。');
             }
@@ -448,13 +511,33 @@
          * @param {HTMLElement} tableBodyElement - 目標表格的 tbody 元素。
          * @param {HTMLInputElement} hideZeroAmountCheckbox - 隱藏金額為0的勾選框元素。
          */
+        /**
+         * 將 TXT / Excel 記錄轉成統一的顯示結構。
+         * @param {Object} rec - 原始記錄。
+         * @param {'txt'|'excel'} source - 資料來源。
+         * @param {string} reason - 未匹配原因。
+         * @param {boolean} alwaysShow - 是否不受「隱藏金額為 0」影響 (例如有代檢費)。
+         */
+        function toDisplayRow(rec, source, reason, alwaysShow = false) {
+            return {
+                reason,
+                medicalRecordId: rec.medicalRecordId,
+                name: rec.name,
+                idCard: source === 'txt' ? rec.idNumber : rec.idCard,
+                birthDate: rec.birthDate,
+                inspectionDate: rec.inspectionDate,
+                amount: source === 'txt' ? rec.amount : rec.declaredAmount,
+                alwaysShow
+            };
+        }
+
         function displayResults(records, tableBodyElement, hideZeroAmountCheckbox) {
             tableBodyElement.innerHTML = '';
 
             if (records.length === 0) {
                 const row = tableBodyElement.insertRow();
                 const cell = row.insertCell();
-                cell.colSpan = 6; // 增加一列用於勾選框
+                cell.colSpan = 8; // 隱藏 + 7 個資料欄位
                 cell.textContent = '所有資料皆已匹配。';
                 cell.classList.add('no-match-message');
                 return;
@@ -473,25 +556,20 @@
                 checkboxCell.appendChild(label); // 將 label 添加到 td 中
 
 
-                if(record.reason.includes("代檢費")){
-                    record.declaredAmount = `申報金額: ${record.declaredAmount} 元`;
-                }
-
-                // 顯示指定的欄位，TXT 記錄使用 'amount'，Excel 記錄使用 'declaredAmount'
                 row.insertCell().textContent = record.reason;
                 row.insertCell().textContent = record.medicalRecordId;
                 row.insertCell().textContent = record.name;
-                row.insertCell().textContent = record.idCard || record.idNumber; // 使用 Excel 的 idCard 或 TXT 的 idNumber
+                row.insertCell().textContent = record.idCard;
                 row.insertCell().textContent = record.birthDate;
                 row.insertCell().textContent = record.inspectionDate;
-                row.insertCell().textContent = record.amount !== undefined ? record.amount : record.declaredAmount;
+                const amountCell = row.insertCell();
+                amountCell.textContent = record.amount.toLocaleString();
+                amountCell.classList.add('amount-cell');
 
+                // 金額為 0 才受「隱藏金額為 0」控制；alwaysShow (有代檢費) 的資料一律顯示
+                row.dataset.amountZero = (record.amount === 0 && !record.alwaysShow).toString();
+                if (record.alwaysShow) row.classList.add('agency-fee-row');
 
-                // 為行添加數據屬性，用於追蹤狀態
-                const recordAmount = record.amount !== undefined ? record.amount : record.declaredAmount;
-                
-                row.dataset.amountZero = (recordAmount === 0).toString();
-                
                 row.dataset.hiddenByCheckbox = 'false'; // 初始狀態為未被獨立勾選框隱藏
 
                 // 初始應用隱藏狀態
@@ -562,41 +640,56 @@
          */
         function printResults() {
             const printWindow = window.open('', '_blank');
-            printWindow.document.write('<html><head><title>比對結果列印</title>');
-            printWindow.document.write('<script src="./js/tailwindcss3.4.16.js"></script>');
+            printWindow.document.write('<html><head><meta charset="UTF-8"><title>比對結果列印</title>');
             printWindow.document.write('<link rel="stylesheet" href="./css/index.css">');
             printWindow.document.write('<style>');
-            printWindow.document.write('@media print { .clinic-title { position: fixed; top: 0; left: 0; right: 0; text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; padding: 5px 0; border-bottom: 1px solid #ccc;  } }');
+            printWindow.document.write(`
+                body { display: block; background: #fff; padding: 0; margin: 0; min-height: 0;
+                       font-family: Arial, sans-serif, '微軟正黑體', 'Microsoft JhengHei'; }
+                h2 { font-size: 15px; justify-content: center; text-align: center; margin: 4px 0 8px; }
+                table { min-width: 0; border-radius: 0; overflow: visible; box-shadow: none; font-size: 12px; }
+                table th, table td { padding: 5px 6px; }
+                .page-layout, .page-layout > thead > tr > th, .page-layout > tbody > tr > td {
+                    border: none; padding: 0; background: none; box-shadow: none; margin: 0; }
+                .clinic-title { text-align: center; font-size: 20px; font-weight: bold; margin: 0;
+                                padding: 4px 0; border-bottom: 1px solid #999; color: #000; }
+                .print-time { text-align: right; font-size: 11px; color: #555; font-weight: normal; padding: 2px 0 8px; }
+                .result-block { page-break-after: always; break-after: page; }
+                .result-block:last-child { page-break-after: auto; break-after: auto; }
+                tr { page-break-inside: avoid; break-inside: avoid; }
+                thead { display: table-header-group; } /* 跨頁時重複表頭 */
+                .no-match-message { display: table-cell !important; text-align: center; }
+                @page { size: A4; margin: 12mm 10mm; }
+            `);
             printWindow.document.write('</style>');
             printWindow.document.write('</head><body>');
 
-            
-
-            // 創建一個臨時 div 來複製和清理 resultsSection 的內容
+            // 複製結果區塊並移除不需要列印的元素
             const clonedResultsSection = document.querySelector('.results-section').cloneNode(true);
+            clonedResultsSection.querySelectorAll('.hide-zero-amount-checkbox-group, .record-count, .screen-only, .hide-row-checkbox-cell, br')
+                .forEach(el => el.remove());
+            clonedResultsSection.querySelectorAll('tbody tr.hidden-row').forEach(row => row.remove());
 
-            // 在克隆的內容中移除不希望列印的元素
-            clonedResultsSection.querySelectorAll('.hide-zero-amount-checkbox-group').forEach(el => el.remove());
-            clonedResultsSection.querySelectorAll('.no-match-message').forEach(el => el.remove());
-            clonedResultsSection.querySelectorAll('.record-count').forEach(el => el.remove());
-            clonedResultsSection.querySelectorAll('.hide-row-checkbox-cell').forEach(el => el.remove()); // 移除獨立勾選框的單元格
-
-            const allClonedRows = clonedResultsSection.querySelectorAll('tbody tr');
-            allClonedRows.forEach(row => {
-                if (row.classList.contains('hidden-row')) {
-                    row.remove(); // 如果行被隱藏，則從列印內容中移除
+            // 每個結果 (標題 + 表格) 包成一個區塊，各自獨立一頁
+            const blocks = [];
+            clonedResultsSection.querySelectorAll('h2').forEach(h2 => {
+                const table = h2.nextElementSibling && h2.nextElementSibling.tagName === 'TABLE' ? h2.nextElementSibling : null;
+                if (!table) return;
+                // 隱藏後沒有任何資料列時，補上提示，避免印出空表格
+                if (table.querySelectorAll('tbody tr').length === 0) {
+                    table.querySelector('tbody').innerHTML = '<tr><td class="no-match-message" colspan="7">無資料</td></tr>';
                 }
+                blocks.push(`<div class="result-block">${h2.outerHTML}${table.outerHTML}</div>`);
             });
-            // 
-            // 將清理後的內容添加到列印視窗的 body 中
-            printWindow.document.write('<div class="print-area">'); // 重新添加 print-area class
-            // 添加診所名稱標題
-            if (clinicName) {
-                printWindow.document.write(`<h1 class="clinic-title">${clinicName}</h1>`);
-                printWindow.document.write('<hr style="margin-bottom: 20px;">');
-            }
-            printWindow.document.write(clonedResultsSection.innerHTML); // 插入清理後的內容
-            printWindow.document.write('</div>');
+
+            // 用外層表格的 thead 放診所名稱：列印時每頁都會重複，且不會像 position:fixed 一樣蓋住內容
+            const printTime = new Date().toLocaleString('zh-TW');
+            const titleHtml = clinicName ? `<div class="clinic-title">${escapeHtml(clinicName)}</div>` : '';
+            printWindow.document.write(`
+                <table class="page-layout">
+                    <thead><tr><th>${titleHtml}<div class="print-time">列印時間: ${printTime}</div></th></tr></thead>
+                    <tbody><tr><td>${blocks.join('')}</td></tr></tbody>
+                </table>`);
             printWindow.document.write('</body></html>');
             printWindow.document.close();
             printWindow.focus();
@@ -615,8 +708,8 @@
             document.querySelector('#excelMissingInTxt tbody').innerHTML = '';
             document.getElementById('hideZeroTxtAmount').checked = false;
             document.getElementById('hideZeroExcelAmount').checked = true;
-            document.getElementById('compareBtn').disabled = true;
-            document.getElementById('compareBtn').classList.remove('highlight-button');
+            // 比對按鈕的啟用狀態只由「是否已選檔案」決定 (checkFilesAndEnableButton)，這裡不動它，
+            // 否則比對完後按鈕會被停用，必須重選檔案才能再比對
             document.getElementById('printResultsBtn').disabled = true;
             document.getElementById('unhideAllBtn').disabled = true;
             document.getElementById('openCalcModalBtn').disabled = true; // 禁用計算按鈕
@@ -634,6 +727,7 @@
          */
         function showMessageBox(message) {
             const messageBox = document.createElement('div');
+            messageBox.className = 'message-box'; // 列印時隱藏
             messageBox.style.cssText = `
                 position: fixed;
                 top: 50%;
@@ -783,7 +877,7 @@
 
             // 添加診所名稱和標題
             if (clinicName) {
-                printWindow.document.write(`<h1 class="print-calc-title">${clinicName}<br>成健金額計算結果</h1>`);
+                printWindow.document.write(`<h1 class="print-calc-title">${escapeHtml(clinicName)}<br>成健金額計算結果</h1>`);
             } else {
                 printWindow.document.write('<h1 class="print-calc-title">成健金額計算結果</h1>');
             }

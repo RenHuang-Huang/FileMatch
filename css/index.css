@@ -19,20 +19,30 @@
             max-width: 1200px; /* 調整最大寬度以容納更多欄位 */
             margin-top: 20px;
         }
-        h1 {
+        /* 加上 .container 提高權重：Tailwind 會在執行時把 preflight 插到 <head> 最後，蓋掉同權重的規則 */
+        .container h1 {
             color: #2c3e50;
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 6px;
             font-weight: 700; /* 加粗標題 */
+            font-size: 1.75rem; /* Tailwind preflight 會把 h1 重設成內文大小，這裡明確指定 */
         }
-        h2 {
+        .compare-rule {
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        .container h2 {
             color: #2c3e50;
             text-align: left; /* 標題靠左 */
             margin-bottom: 15px; /* 調整標題間距 */
             font-weight: 700; /* 加粗標題 */
+            font-size: 1.1rem;
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            gap: 10px; /* 標題與計數之間的間距 */
+            gap: 4px 10px; /* 標題與計數之間的間距 */
         }
         .record-count {
             font-size: 0.8em;
@@ -400,10 +410,47 @@
             cursor: pointer;
         }
 
-        /* 列印專用樣式 */
+        /* 表頭不換行 (例如「隱藏」原本會被擠成直排) */
+        table th {
+            white-space: nowrap;
+        }
+        /* 金額靠右、等寬數字，方便對齊核對 */
+        table td.amount-cell {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        /* 申報為 0 但有代檢費的資料，標示提醒 */
+        tr.agency-fee-row td {
+            background-color: #fff8e1;
+        }
+
+        /* 列印專用樣式 (直接按 Ctrl+P 時使用；「列印結果」按鈕會另開視窗) */
         @media print {
-            body > *:not(.print-area) { /* 隱藏所有非列印區域的元素 */
-                display: none;
+            /* .print-area 位於 .container 內，原本的 body > *:not(.print-area) 會把整個 container 藏掉，
+               導致 Ctrl+P 印出空白頁；改為只隱藏輸入區與標題 */
+            .container > h1,
+            .compare-rule,
+            .input-section,
+            .message-box,
+            .screen-only {
+                display: none !important;
+            }
+            body {
+                background: #fff;
+                padding: 0;
+                display: block;
+            }
+            .container {
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+                max-width: none;
+            }
+            .results-section {
+                overflow: visible;
+            }
+            .print-area table {
+                min-width: 0;
             }
             .print-area {
                 display: block;
@@ -429,6 +476,9 @@
                 padding: 8px;
                 text-align: left;
                 color: #000; /* 確保列印時文字為黑色 */
+            }
+            .print-area table td.amount-cell {
+                text-align: right;
             }
             .print-area table th {
                 background-color: #f0f0f0; /* 列印時輕微的背景色 */

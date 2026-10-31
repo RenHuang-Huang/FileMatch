@@ -21,6 +21,7 @@
 <body>
     <div class="container">
         <h1>文件資料比對工具</h1>
+        <p class="compare-rule">比對條件：身分證 ＋ 檢驗日期 ＋ 申報金額</p>
 
         <div class="input-section">
             <div class="file-input-group">
@@ -66,7 +67,7 @@
                 </tbody>
             </table>
             <br/>
-            <h2 class="mt-8">【樓上EXCEL】代檢費對帳單(樓上)中存在，但申報對帳(樓下)檔中不存在的資料<span class="text-red-500">[預設隱藏金額為0的資料]<span> <span id="excelReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
+            <h2 class="mt-8">【樓上EXCEL】代檢費對帳單(樓上)中存在，但申報對帳(樓下)檔中不存在的資料 <span class="text-red-500 screen-only">[預設隱藏金額為0的資料]</span> <span id="excelReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
             <div class="hide-zero-amount-checkbox-group">
                 <input type="checkbox" id="hideZeroExcelAmount" checked> <!-- 預設勾選 -->
                 <label for="hideZeroExcelAmount">隱藏申報金額為 0 的資料</label>
