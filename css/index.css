@@ -721,8 +721,3 @@
                 transform: none;
             }
         }
-
-        /* 原因欄括號內的對方數值不拆行 */
-        .reason-detail {
-            white-space: nowrap;
-        }

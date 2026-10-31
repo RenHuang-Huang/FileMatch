@@ -442,11 +442,11 @@
                 if (!others || others.length === 0) return '未找到';
                 const sameDate = others.filter(o => o.date === item.date);
                 if (sameDate.length > 0) {
-                    return `金額不符（${otherLabel} ${sameDate.map(o => o.amount).join('、')}）`;
+                    return `金額不符，${otherLabel} ${sameDate.map(o => o.amount).join('、')}`;
                 }
                 const sameAmount = others.filter(o => o.amount === item.amount);
                 if (sameAmount.length > 0) {
-                    return `${dateLabel}不符（${otherLabel} ${sameAmount.map(o => displayDateOf(o.rec)).join('、')}）`;
+                    return `${dateLabel}不符，${otherLabel} ${sameAmount.map(o => displayDateOf(o.rec)).join('、')}`;
                 }
                 return `${dateLabel}及金額皆不符`;
             };
@@ -470,7 +470,7 @@
                     if (potentialMatches.length === 0) excelMap.delete(key);
                 } else if (excelKeys.has(key)) {
                     // 完全相同的資料在國泰存在，但筆數比診所少
-                    txtOnly.push(toDisplayRow(item.rec, 'txt', '重複資料（國泰筆數較少）'));
+                    txtOnly.push(toDisplayRow(item.rec, 'txt', '重複資料，國泰筆數較少'));
                 } else {
                     txtOnly.push(toDisplayRow(item.rec, 'txt', describeMismatch(item, excelById.get(item.id), '國泰')));
                 }
@@ -625,18 +625,7 @@
                 checkboxCell.appendChild(label); // 將 label 添加到 td 中
 
 
-                // 原因欄：括號內的對方數值不拆行 (例如「金額不符」換行後接「（國泰 650）」)，列印字放大後仍好讀
-                const reasonCell = row.insertCell();
-                record.reason.split(/(（[^）]*）|代檢費 \d+)/).filter(Boolean).forEach(part => {
-                    if (part.startsWith('（') || part.startsWith('代檢費')) {
-                        const detail = document.createElement('span');
-                        detail.className = 'reason-detail';
-                        detail.textContent = part;
-                        reasonCell.appendChild(detail);
-                    } else {
-                        reasonCell.appendChild(document.createTextNode(part));
-                    }
-                });
+                row.insertCell().textContent = record.reason;
                 row.insertCell().textContent = record.medicalRecordId;
                 row.insertCell().textContent = record.name;
                 row.insertCell().textContent = record.idCard;
@@ -724,15 +713,18 @@
          */
         function printResults() {
             const printWindow = window.open('', '_blank');
-            printWindow.document.write('<html><head><meta charset="UTF-8"><title>比對結果列印</title>');
+            printWindow.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>比對結果列印</title>');
             printWindow.document.write('<link rel="stylesheet" href="./css/index.css">');
             printWindow.document.write('<style>');
             printWindow.document.write(`
-                body { display: block; background: #fff; padding: 0; margin: 0; min-height: 0;
+                /* 寬度固定為 A4 扣除左右邊界 (210mm - 10mm x 2)，字級依此寬度自動計算 */
+                body { display: block; background: #fff; padding: 0; margin: 0; min-height: 0; width: 190mm;
                        font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif; }
-                h2 { font-size: 19px; justify-content: center; text-align: center; margin: 6px 0 10px; }
-                table { min-width: 0; border-radius: 0; overflow: visible; box-shadow: none; font-size: 17px; }
-                table th, table td { padding: 7px 8px; }
+                h2 { font-size: 20px; justify-content: center; text-align: center; margin: 6px 0 10px; white-space: nowrap; }
+                table { min-width: 0; border-radius: 0; overflow: visible; box-shadow: none; font-size: 16px; }
+                table th, table td { padding: 0.4em 0.45em; white-space: nowrap; }
+                /* 固定版面：內容過寬時不會撐開外層，才量得出真正是否超出 A4 */
+                .page-layout { width: 100%; table-layout: fixed; }
                 .page-layout, .page-layout > thead > tr > th, .page-layout > tbody > tr > td {
                     border: none; padding: 0; background: none; box-shadow: none; margin: 0; }
                 .clinic-title { text-align: center; font-size: 26px; font-weight: bold; margin: 0;
@@ -778,10 +770,64 @@
             printWindow.document.close();
             printWindow.focus();
 
-            // 等待內容加載完成後再列印，避免內容缺失
-            printWindow.onload = function() {
-                printWindow.print();
+            // 等待內容與字型載入完成，計算字級後再列印
+            const fitThenPrint = () => {
+                const fontsReady = printWindow.document.fonts ? printWindow.document.fonts.ready : Promise.resolve();
+                fontsReady.then(() => {
+                    fitPrintFontSize(printWindow.document);
+                    printWindow.print();
+                });
             };
+            if (printWindow.document.readyState === 'complete') {
+                fitThenPrint();
+            } else {
+                printWindow.onload = fitThenPrint;
+            }
+        }
+
+        /**
+         * 以二分搜尋找出「每一列都不換行、表格不超出 A4 寬度」的最大字級。
+         * 兩張表格使用同一個字級，版面一致；表格標題各自計算。
+         * 資料過長、縮到最小字級仍放不下時，才允許換行。
+         * @param {Document} doc - 列印視窗的 document。
+         */
+        function fitPrintFontSize(doc) {
+            const MIN_SIZE = 9, MAX_SIZE = 24;
+            const available = doc.body.getBoundingClientRect().width; // 190mm 的實際像素寬度
+            const largestFitting = (apply, fits) => {
+                let lo = MIN_SIZE, hi = MAX_SIZE;
+                apply(lo);
+                if (!fits()) return null;
+                while (hi - lo > 0.25) {
+                    const mid = (lo + hi) / 2;
+                    apply(mid);
+                    if (fits()) lo = mid; else hi = mid;
+                }
+                const size = Math.floor(lo * 2) / 2; // 取到 0.5px，保守一點
+                apply(size);
+                return size;
+            };
+
+            const tables = [...doc.querySelectorAll('.result-block table')];
+            const tableSize = largestFitting(
+                size => tables.forEach(t => { t.style.fontSize = `${size}px`; }),
+                () => tables.every(t => t.offsetWidth <= available + 1)
+            );
+            if (tableSize === null) {
+                tables.forEach(t => {
+                    t.style.fontSize = `${MIN_SIZE}px`;
+                    t.querySelectorAll('th, td').forEach(c => { c.style.whiteSpace = 'normal'; });
+                });
+            }
+
+            doc.querySelectorAll('.result-block h2').forEach(h2 => {
+                const size = largestFitting(
+                    s => { h2.style.fontSize = `${s}px`; },
+                    () => h2.scrollWidth <= h2.clientWidth + 1
+                );
+                if (size === null) h2.style.whiteSpace = 'normal';
+            });
+            return tableSize;
         }
 
         /**
