@@ -28,7 +28,12 @@
             <span class="compare-options-hint">（優先比對就醫日期；國泰 Excel 沒有就醫日期欄位時改比對檢驗日期）</span>
         </div>
 
-        <div class="input-section">
+        <div class="mode-tabs" role="tablist" aria-label="比對方式">
+            <button type="button" id="modeSingle" role="tab" aria-selected="true" aria-controls="singlePanel">單一診所</button>
+            <button type="button" id="modeBatch" role="tab" aria-selected="false" aria-controls="batchPanel">批次比對（多家診所）</button>
+        </div>
+
+        <div class="input-section" id="singlePanel" role="tabpanel" aria-labelledby="modeSingle">
             <div class="file-input-group">
                 <label for="txtFile">上傳 TXT 申報對帳檔 (可選擇多個檔案):</label>
                 <input type="file" id="txtFile" accept=".txt" multiple>
@@ -48,6 +53,23 @@
             </div>
         </div>
 
+        <div class="input-section" id="batchPanel" role="tabpanel" aria-labelledby="modeBatch" hidden>
+            <p class="batch-intro">一次選取多家診所的診所 TXT 與國泰 Excel，依檔名開頭的診所代碼自動配對（例如 008-1.txt、008.xls 都是 008；同一家的多個 TXT 會合併比對）。</p>
+            <div class="file-input-group">
+                <label for="batchFiles">選擇檔案（TXT 與 Excel 可一起選，例如整個月份資料夾全選）:</label>
+                <input type="file" id="batchFiles" accept=".txt,.xls,.xlsx" multiple>
+            </div>
+            <div class="file-input-group">
+                <label for="batchFolder">或選擇整個資料夾:</label>
+                <input type="file" id="batchFolder" webkitdirectory multiple>
+            </div>
+            <div id="batchGroups"></div>
+            <div class="view-data-buttons">
+                <button type="button" id="batchCompareBtn" disabled>批次比對</button>
+                <button type="button" id="batchPrintBtn" disabled>列印全部</button>
+                <button type="button" id="batchUnhideBtn" disabled>取消隱藏被勾選資料</button>
+            </div>
+        </div>
         <div class="results-section print-area"> <!-- 添加 print-area class -->
             <h2>【診所TXT】申報對帳(診所)檔中存在，但代檢費對帳單(國泰)中不存在的資料 <span id="txtReadCount" class="record-count">(讀取 0 筆資料)</span></h2>
             <div class="hide-zero-amount-checkbox-group">
@@ -95,6 +117,8 @@
                 </tbody>
             </table>
         </div>
+
+        <div id="batchResults" class="results-section batch-results" hidden></div>
     </div>
 
     <!-- 計算成健金額模態視窗 -->

@@ -398,6 +398,26 @@
          * @param {Array<Object>} excelRecords - 從 Excel 檔案解析的記錄。
          */
         function performComparison(txtRecords, excelRecords) {
+            const { txtOnly, excelOnly, ruleLabel, compareDate, dateLabel } = computeComparison(txtRecords, excelRecords);
+            lastDateFieldLabel = compareDate ? dateLabel : '';
+            updateCompareRuleText();
+
+            displayResults(txtOnly, document.querySelector('#txtMissingInExcel tbody'), document.getElementById('hideZeroTxtAmount'));
+            displayResults(excelOnly, document.querySelector('#excelMissingInTxt tbody'), document.getElementById('hideZeroExcelAmount'));
+            updateHiddenCounts();
+
+            if (txtOnly.length === 0 && excelOnly.length === 0) {
+                showMessageBox(`比對完成！兩份文件所有${ruleLabel.replace(/ ＋ /g, '、')}的資料均匹配。`);
+            } else {
+                showMessageBox('比對完成！請查看下方表格，找出未匹配的資料。');
+            }
+        }
+
+        /**
+         * 比對計算 (不碰畫面)，單一比對與批次比對共用。
+         * @returns {{txtOnly: Array, excelOnly: Array, ruleLabel: string, compareDate: boolean, dateLabel: string}}
+         */
+        function computeComparison(txtRecords, excelRecords) {
             const txtOnly = [];
             const excelOnly = [];
             const compareDate = isCompareDateEnabled();
@@ -405,8 +425,7 @@
             // 日期欄位：優先就醫日期，任一邊沒有就醫日期時改用檢驗日期
             const dateField = chooseDateField(txtRecords, excelRecords);
             const dateLabel = dateField === 'visit' ? '就醫日期' : '檢驗日期';
-            lastDateFieldLabel = compareDate ? dateLabel : '';
-            updateCompareRuleText();
+            const ruleLabel = compareDate ? `身分證 ＋ ${dateLabel} ＋ 申報金額` : '身分證 ＋ 申報金額';
             const displayDateOf = rec => dateField === 'visit' ? rec.visitDate : rec.inspectionDate;
 
             // 統一兩邊的欄位，比對與顯示都用同一個結構
@@ -496,16 +515,7 @@
                 }
             }
 
-            // 呼叫顯示結果的函式
-            displayResults(txtOnly, document.querySelector('#txtMissingInExcel tbody'), document.getElementById('hideZeroTxtAmount'));
-            displayResults(excelOnly, document.querySelector('#excelMissingInTxt tbody'), document.getElementById('hideZeroExcelAmount'));
-            updateHiddenCounts();
-
-            if (txtOnly.length === 0 && excelOnly.length === 0) {
-                showMessageBox(`比對完成！兩份文件所有${compareRuleLabel().replace(/ ＋ /g, '、')}的資料均匹配。`);
-            } else if (txtOnly.length > 0 || excelOnly.length > 0) {
-                showMessageBox('比對完成！請查看下方表格，找出未匹配的資料。');
-            }
+            return { txtOnly, excelOnly, ruleLabel, compareDate, dateLabel };
         }
 
         /**
@@ -690,18 +700,25 @@
         /**
          * 顯示所有隱藏的資料 (僅取消單獨勾選的隱藏，不影響金額為0的篩選)。
          */
-        function unhideAllRows() {
-            // 遍歷所有表格行，取消勾選獨立的隱藏方框並更新可見性
-            const allRows = document.querySelectorAll('#txtMissingInExcel tbody tr, #excelMissingInTxt tbody tr');
-            allRows.forEach(row => {
-                const individualCheckbox = row.querySelector('.hide-row-checkbox');
-                if (individualCheckbox) {
-                    individualCheckbox.checked = false; // 取消勾選
-                    row.dataset.hiddenByCheckbox = 'false'; // 重置數據屬性
-                }
-                // 重新評估行的可見性，根據當前「隱藏金額為0」的勾選框狀態
-                const hideZeroAmountCheckboxForTable = (row.closest('table').id === 'txtMissingInExcel' ? document.getElementById('hideZeroTxtAmount') : document.getElementById('hideZeroExcelAmount'));
-                updateRowVisibility(row, hideZeroAmountCheckboxForTable);
+        /** 表格上方「隱藏申報金額為 0」的勾選框 (結構：勾選框群組緊接著表格)。 */
+        function hideZeroCheckboxOf(table) {
+            const group = table.previousElementSibling;
+            return group && group.classList.contains('hide-zero-amount-checkbox-group') ? group.querySelector('input[type="checkbox"]') : null;
+        }
+
+        function unhideAllRows(scope = document.querySelector('.results-section')) {
+            // 取消勾選每一列的隱藏方框，再依「隱藏金額為0」的狀態重新評估
+            scope.querySelectorAll('table').forEach(table => {
+                const hideZeroCheckbox = hideZeroCheckboxOf(table);
+                if (!hideZeroCheckbox) return;
+                table.querySelectorAll('tbody tr').forEach(row => {
+                    const individualCheckbox = row.querySelector('.hide-row-checkbox');
+                    if (individualCheckbox) {
+                        individualCheckbox.checked = false;
+                        row.dataset.hiddenByCheckbox = 'false';
+                    }
+                    updateRowVisibility(row, hideZeroCheckbox);
+                });
             });
 
             showMessageBox('所有被勾選隱藏的資料已顯示。');
@@ -709,9 +726,46 @@
 
 
         /**
-         * 執行列印功能。
+         * 執行列印功能 (單一比對)。
          */
         function printResults() {
+            openPrintWindow([{
+                title: clinicName,
+                rule: compareRuleLabel(),
+                blocks: extractPrintBlocks(document.querySelector('.results-section'))
+            }]);
+        }
+
+        /**
+         * 從結果區塊擷取要列印的「標題 + 表格」，移除勾選框、被隱藏的列等畫面專用內容。
+         * @param {HTMLElement} sectionEl - 含 h2 + table 的結果區塊。
+         * @returns {string[]} 每個元素是一張表格的 HTML。
+         */
+        function extractPrintBlocks(sectionEl) {
+            const cloned = sectionEl.cloneNode(true);
+            cloned.querySelectorAll('.hide-zero-amount-checkbox-group, .record-count, .screen-only, .hide-row-checkbox-cell, br')
+                .forEach(el => el.remove());
+            cloned.querySelectorAll('tbody tr.hidden-row').forEach(row => row.remove());
+
+            const blocks = [];
+            cloned.querySelectorAll('h2').forEach(h2 => {
+                const table = h2.nextElementSibling && h2.nextElementSibling.tagName === 'TABLE' ? h2.nextElementSibling : null;
+                if (!table) return;
+                // 隱藏後沒有任何資料列時，補上提示，避免印出空表格
+                if (table.querySelectorAll('tbody tr').length === 0) {
+                    table.querySelector('tbody').innerHTML = '<tr><td class="no-match-message" colspan="7">無資料</td></tr>';
+                }
+                blocks.push(`<div class="result-block">${h2.outerHTML}${table.outerHTML}</div>`);
+            });
+            return blocks;
+        }
+
+        /**
+         * 開列印視窗。每個 page 是一家診所：頁首 (診所名稱、比對條件、列印時間) 在該診所的每一頁重複，
+         * 診所之間、表格之間都換頁。
+         * @param {Array<{title: string, rule: string, blocks: string[]}>} pages
+         */
+        function openPrintWindow(pages) {
             const printWindow = window.open('', '_blank');
             printWindow.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>比對結果列印</title>');
             printWindow.document.write('<link rel="stylesheet" href="./css/index.css">');
@@ -724,7 +778,8 @@
                 table { min-width: 0; border-radius: 0; overflow: visible; box-shadow: none; font-size: 16px; }
                 table th, table td { padding: 0.4em 0.45em; white-space: nowrap; }
                 /* 固定版面：內容過寬時不會撐開外層，才量得出真正是否超出 A4 */
-                .page-layout { width: 100%; table-layout: fixed; }
+                .page-layout { width: 100%; table-layout: fixed; page-break-after: always; break-after: page; }
+                .page-layout:last-of-type { page-break-after: auto; break-after: auto; }
                 .page-layout, .page-layout > thead > tr > th, .page-layout > tbody > tr > td {
                     border: none; padding: 0; background: none; box-shadow: none; margin: 0; }
                 .clinic-title { text-align: center; font-size: 26px; font-weight: bold; margin: 0;
@@ -740,32 +795,16 @@
             printWindow.document.write('</style>');
             printWindow.document.write('</head><body>');
 
-            // 複製結果區塊並移除不需要列印的元素
-            const clonedResultsSection = document.querySelector('.results-section').cloneNode(true);
-            clonedResultsSection.querySelectorAll('.hide-zero-amount-checkbox-group, .record-count, .screen-only, .hide-row-checkbox-cell, br')
-                .forEach(el => el.remove());
-            clonedResultsSection.querySelectorAll('tbody tr.hidden-row').forEach(row => row.remove());
-
-            // 每個結果 (標題 + 表格) 包成一個區塊，各自獨立一頁
-            const blocks = [];
-            clonedResultsSection.querySelectorAll('h2').forEach(h2 => {
-                const table = h2.nextElementSibling && h2.nextElementSibling.tagName === 'TABLE' ? h2.nextElementSibling : null;
-                if (!table) return;
-                // 隱藏後沒有任何資料列時，補上提示，避免印出空表格
-                if (table.querySelectorAll('tbody tr').length === 0) {
-                    table.querySelector('tbody').innerHTML = '<tr><td class="no-match-message" colspan="7">無資料</td></tr>';
-                }
-                blocks.push(`<div class="result-block">${h2.outerHTML}${table.outerHTML}</div>`);
-            });
-
             // 用外層表格的 thead 放診所名稱：列印時每頁都會重複，且不會像 position:fixed 一樣蓋住內容
             const printTime = new Date().toLocaleString('zh-TW');
-            const titleHtml = clinicName ? `<div class="clinic-title">${escapeHtml(clinicName)}</div>` : '';
-            printWindow.document.write(`
-                <table class="page-layout">
-                    <thead><tr><th>${titleHtml}<div class="print-time">比對條件: ${compareRuleLabel()}　列印時間: ${printTime}</div></th></tr></thead>
-                    <tbody><tr><td>${blocks.join('')}</td></tr></tbody>
-                </table>`);
+            pages.forEach(page => {
+                const titleHtml = page.title ? `<div class="clinic-title">${escapeHtml(page.title)}</div>` : '';
+                printWindow.document.write(`
+                    <table class="page-layout">
+                        <thead><tr><th>${titleHtml}<div class="print-time">比對條件: ${escapeHtml(page.rule)}　列印時間: ${printTime}</div></th></tr></thead>
+                        <tbody><tr><td>${page.blocks.join('')}</td></tr></tbody>
+                    </table>`);
+            });
             printWindow.document.write('</body></html>');
             printWindow.document.close();
             printWindow.focus();
@@ -787,13 +826,17 @@
 
         /**
          * 以二分搜尋找出「每一列都不換行、表格不超出 A4 寬度」的最大字級。
-         * 兩張表格使用同一個字級，版面一致；表格標題各自計算。
+         * 每家診所 (每個 .page-layout) 各自計算：同一家的兩張表格使用同一個字級，表格標題各自計算。
          * 資料過長、縮到最小字級仍放不下時，才允許換行。
          * @param {Document} doc - 列印視窗的 document。
          */
         function fitPrintFontSize(doc) {
-            const MIN_SIZE = 9, MAX_SIZE = 24;
             const available = doc.body.getBoundingClientRect().width; // 190mm 的實際像素寬度
+            return [...doc.querySelectorAll('.page-layout')].map(layout => fitPrintLayout(layout, available));
+        }
+
+        function fitPrintLayout(layout, available) {
+            const MIN_SIZE = 9, MAX_SIZE = 24;
             const largestFitting = (apply, fits) => {
                 let lo = MIN_SIZE, hi = MAX_SIZE;
                 apply(lo);
@@ -808,7 +851,7 @@
                 return size;
             };
 
-            const tables = [...doc.querySelectorAll('.result-block table')];
+            const tables = [...layout.querySelectorAll('.result-block table')];
             const tableSize = largestFitting(
                 size => tables.forEach(t => { t.style.fontSize = `${size}px`; }),
                 () => tables.every(t => t.offsetWidth <= available + 1)
@@ -820,7 +863,7 @@
                 });
             }
 
-            doc.querySelectorAll('.result-block h2').forEach(h2 => {
+            layout.querySelectorAll('.result-block h2').forEach(h2 => {
                 const size = largestFitting(
                     s => { h2.style.fontSize = `${s}px`; },
                     () => h2.scrollWidth <= h2.clientWidth + 1
@@ -895,11 +938,13 @@
          * 更新「隱藏申報金額為 0 的資料」旁的已隱藏筆數。
          */
         function updateHiddenCounts() {
-            [['txtMissingInExcel', 'hideZeroTxtAmount', 'hideZeroTxtCount'],
-             ['excelMissingInTxt', 'hideZeroExcelAmount', 'hideZeroExcelCount']].forEach(([tableId, checkboxId, countId]) => {
-                const zeroRows = document.querySelectorAll(`#${tableId} tbody tr[data-amount-zero="true"]`).length;
-                const checked = document.getElementById(checkboxId).checked;
-                document.getElementById(countId).textContent = zeroRows > 0 ? `（${checked ? '已隱藏' : '共'} ${zeroRows} 筆）` : '';
+            document.querySelectorAll('.hide-zero-amount-checkbox-group').forEach(group => {
+                const table = group.nextElementSibling;
+                const checkbox = group.querySelector('input[type="checkbox"]');
+                const countEl = group.querySelector('.hidden-count');
+                if (!table || table.tagName !== 'TABLE' || !checkbox || !countEl) return;
+                const zeroRows = table.querySelectorAll('tbody tr[data-amount-zero="true"]').length;
+                countEl.textContent = zeroRows > 0 ? `（${checkbox.checked ? '已隱藏' : '共'} ${zeroRows} 筆）` : '';
             });
         }
 
@@ -1228,12 +1273,15 @@
                 if (hasResults) {
                     performComparison(parsedTxtRecords, parsedExcelRecords);
                 }
+                if (batchState.hasResults) {
+                    runBatchCompare();
+                }
             });
 
             // 事件監聽器
             compareBtn.addEventListener('click', compareFiles);
             printResultsBtn.addEventListener('click', printResults);
-            unhideAllBtn.addEventListener('click', unhideAllRows); // 使用修改後的 unhideAllRows 函式
+            unhideAllBtn.addEventListener('click', () => unhideAllRows());
 
             hideZeroTxtAmountCheckbox.addEventListener('change', () => toggleRowsVisibility(txtMissingInExcelTableBody, hideZeroTxtAmountCheckbox));
             hideZeroExcelAmountCheckbox.addEventListener('change', () => toggleRowsVisibility(excelMissingInTxtTableBody, hideZeroExcelAmountCheckbox));
@@ -1374,4 +1422,269 @@
                     clearResults(); // 清除主頁面比對結果
                 }
             }
+        });
+
+        // ===================== 批次比對 (一次多家診所) =====================
+        // 依檔名開頭的數字當診所代碼配對：008-1.txt、008-01.txt、011l.txt、66-1.txt (補零為 066)、
+        // 008院所申報暨代檢費對帳單B.xls 都歸到同一家；同一家的多個 TXT / Excel 合併比對。
+
+        const batchState = { files: [], groups: [], hasResults: false, runId: 0 };
+
+        /** 檔名開頭的數字 → 3 碼診所代碼；沒有數字開頭回傳 null。 */
+        function clinicCodeOf(fileName) {
+            const match = fileName.match(/^(\d+)/);
+            return match ? match[1].padStart(3, '0') : null;
+        }
+
+        function fileKindOf(fileName) {
+            if (/\.txt$/i.test(fileName)) return 'txt';
+            if (/\.xlsx?$/i.test(fileName)) return 'excel';
+            return null;
+        }
+
+        /**
+         * 把選取的檔案依診所代碼分組。
+         * @returns {{groups: Array<{code, txt: File[], excel: File[], status, ready}>, unknown: File[]}}
+         */
+        function groupBatchFiles(files) {
+            const byCode = new Map();
+            const unknown = [];
+            files.forEach(file => {
+                const kind = fileKindOf(file.name);
+                if (!kind) return; // .DS_Store 等非資料檔直接略過
+                const code = clinicCodeOf(file.name);
+                if (!code) { unknown.push(file); return; }
+                if (!byCode.has(code)) byCode.set(code, { code, txt: [], excel: [] });
+                byCode.get(code)[kind].push(file);
+            });
+            const byName = (a, b) => a.name.localeCompare(b.name, 'zh-Hant', { numeric: true });
+            const groups = [...byCode.values()].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+            groups.forEach(g => {
+                g.txt.sort(byName);
+                g.excel.sort(byName);
+                if (g.txt.length === 0) { g.status = '缺診所 TXT，不比對'; g.ready = false; }
+                else if (g.excel.length === 0) { g.status = '缺國泰 Excel，不比對'; g.ready = false; }
+                else if (g.excel.length > 1) { g.status = `國泰檔有 ${g.excel.length} 個，會合併比對，請確認`; g.ready = true; }
+                else { g.status = '可比對'; g.ready = true; }
+            });
+            return { groups, unknown };
+        }
+
+        function setBatchFiles(fileList) {
+            batchState.files = [...fileList].filter(f => fileKindOf(f.name));
+            const { groups, unknown } = groupBatchFiles(batchState.files);
+            batchState.groups = groups;
+            renderBatchGroups(groups, unknown);
+            clearBatchResults();
+        }
+
+        function renderBatchGroups(groups, unknown) {
+            const container = document.getElementById('batchGroups');
+            container.innerHTML = '';
+            if (groups.length === 0 && unknown.length === 0) {
+                document.getElementById('batchCompareBtn').disabled = true;
+                return;
+            }
+            const readyCount = groups.filter(g => g.ready).length;
+            const summary = document.createElement('p');
+            summary.className = 'batch-summary';
+            summary.textContent = `共 ${groups.length} 家診所，${readyCount} 家可比對` + (unknown.length ? `；${unknown.length} 個檔案無法辨識代碼` : '');
+            container.appendChild(summary);
+
+            const table = document.createElement('table');
+            table.className = 'batch-group-table';
+            table.innerHTML = '<thead><tr><th>代碼</th><th>診所 TXT</th><th>國泰 Excel</th><th>狀態</th></tr></thead><tbody></tbody>';
+            const tbody = table.querySelector('tbody');
+            groups.forEach(g => {
+                const row = tbody.insertRow();
+                if (!g.ready) row.classList.add('batch-not-ready');
+                else if (g.excel.length > 1) row.classList.add('batch-warn');
+                [g.code, g.txt.map(f => f.name).join('、') || '—', g.excel.map(f => f.name).join('、') || '—', g.status]
+                    .forEach(text => { row.insertCell().textContent = text; });
+            });
+            unknown.forEach(f => {
+                const row = tbody.insertRow();
+                row.classList.add('batch-not-ready');
+                ['—', fileKindOf(f.name) === 'txt' ? f.name : '—', fileKindOf(f.name) === 'excel' ? f.name : '—', '檔名開頭沒有診所代碼，不比對']
+                    .forEach(text => { row.insertCell().textContent = text; });
+            });
+            container.appendChild(table);
+            document.getElementById('batchCompareBtn').disabled = readyCount === 0;
+        }
+
+        function clearBatchResults() {
+            batchState.runId++; // 讓進行中的批次比對作廢
+            batchState.hasResults = false;
+            const results = document.getElementById('batchResults');
+            results.innerHTML = '';
+            results.hidden = true;
+            document.getElementById('batchPrintBtn').disabled = true;
+            document.getElementById('batchUnhideBtn').disabled = true;
+        }
+
+        /** 依序比對每一家可比對的診所，結果逐家顯示。 */
+        async function runBatchCompare() {
+            const groups = batchState.groups.filter(g => g.ready);
+            if (groups.length === 0) return;
+            // 每次比對有自己的編號：比對中途又觸發新的比對 (例如切換開關) 時，舊的那次直接作廢，
+            // 結果先畫在畫面外的容器，全部完成才一次換上，避免兩次結果交錯
+            const runId = ++batchState.runId;
+            const compareBtn = document.getElementById('batchCompareBtn');
+            compareBtn.disabled = true;
+            const results = document.createElement('div');
+
+            const overview = document.createElement('div');
+            overview.className = 'batch-overview';
+            results.appendChild(overview);
+
+            const savedClinicName = clinicName; // 解析 TXT 會改寫全域的診所名稱，結束後還原給單一比對使用
+            const rows = [];
+            for (const group of groups) {
+                try {
+                    const txtRecords = [];
+                    // 先讀完檔案 (await) 再解析，解析與讀取全域診所名稱之間不讓出執行權
+                    const txtContents = [];
+                    for (const file of group.txt) txtContents.push(await readTxtFile(file));
+                    const excelContents = [];
+                    for (const file of group.excel) excelContents.push(await readExcelFile(file));
+                    if (runId !== batchState.runId) return; // 已有較新的比對
+                    clinicName = '';
+                    txtContents.forEach((content, i) => txtRecords.push(...parseTxtDataBySpaces(content, i === 0)));
+                    const name = clinicName;
+                    clinicName = savedClinicName;
+                    const excelRecords = [];
+                    excelContents.forEach(content => excelRecords.push(...parseExcelData(content)));
+                    const result = computeComparison(txtRecords, excelRecords);
+                    renderBatchClinic(results, group, name, txtRecords.length, excelRecords.length, result);
+                    rows.push({ group, name, txtCount: txtRecords.length, excelCount: excelRecords.length, result });
+                } catch (error) {
+                    clinicName = savedClinicName;
+                    console.error(`批次比對 ${group.code} 失敗:`, error);
+                    rows.push({ group, error: error.message });
+                    const failed = document.createElement('section');
+                    failed.className = 'batch-clinic batch-error';
+                    failed.id = `batch-clinic-${group.code}`;
+                    failed.textContent = `${group.code}：檔案處理失敗（${error.message}）`;
+                    results.appendChild(failed);
+                }
+            }
+            if (runId !== batchState.runId) return;
+
+            renderBatchOverview(overview, rows);
+            const target = document.getElementById('batchResults');
+            target.replaceChildren(...results.childNodes);
+            target.hidden = false;
+            updateHiddenCounts();
+            batchState.hasResults = true;
+            compareBtn.disabled = false;
+            document.getElementById('batchPrintBtn').disabled = !rows.some(r => !r.error);
+            document.getElementById('batchUnhideBtn').disabled = false;
+            const failedCount = rows.filter(r => r.error).length;
+            showMessageBox(`批次比對完成：${rows.length - failedCount} 家完成` + (failedCount ? `，${failedCount} 家失敗` : '') + '。');
+        }
+
+        function renderBatchOverview(container, rows) {
+            container.innerHTML = '<h2 class="batch-overview-title">批次比對總覽</h2>';
+            const table = document.createElement('table');
+            table.className = 'batch-overview-table';
+            table.innerHTML = '<thead><tr><th>代碼</th><th>診所</th><th>診所筆數</th><th>國泰筆數</th><th>診所有、國泰沒有</th><th>國泰有、診所沒有</th></tr></thead><tbody></tbody>';
+            const tbody = table.querySelector('tbody');
+            rows.forEach(r => {
+                const row = tbody.insertRow();
+                const codeCell = row.insertCell();
+                const link = document.createElement('a');
+                link.href = `#batch-clinic-${r.group.code}`;
+                link.textContent = r.group.code;
+                codeCell.appendChild(link);
+                if (r.error) {
+                    const cell = row.insertCell();
+                    cell.colSpan = 5;
+                    cell.textContent = `處理失敗：${r.error}`;
+                    row.classList.add('batch-not-ready');
+                    return;
+                }
+                [r.name || '（未取得名稱）', r.txtCount, r.excelCount, r.result.txtOnly.length, r.result.excelOnly.length].forEach((v, i) => {
+                    const cell = row.insertCell();
+                    cell.textContent = typeof v === 'number' ? v.toLocaleString() : v;
+                    if (i > 0) cell.classList.add('amount-cell');
+                });
+            });
+            container.appendChild(table);
+        }
+
+        /** 一家診所的結果：標題列 + 兩張表 (結構與單一比對相同，列印擷取共用)。 */
+        function renderBatchClinic(container, group, name, txtCount, excelCount, result) {
+            const section = document.createElement('section');
+            section.className = 'batch-clinic';
+            section.id = `batch-clinic-${group.code}`;
+            section.dataset.title = name ? `${group.code} ${name}` : `診所代碼 ${group.code}`;
+            section.dataset.rule = result.ruleLabel;
+
+            const head = document.createElement('div');
+            head.className = 'batch-clinic-head';
+            head.innerHTML = `<span class="batch-clinic-name"></span><span class="record-count"></span>`;
+            head.querySelector('.batch-clinic-name').textContent = section.dataset.title;
+            head.querySelector('.record-count').textContent =
+                `診所 ${txtCount} 筆（${group.txt.map(f => f.name).join('、')}）／國泰 ${excelCount} 筆（${group.excel.map(f => f.name).join('、')}）`;
+            section.appendChild(head);
+
+            const tables = [
+                { title: '【診所TXT】申報對帳(診所)檔中存在，但代檢費對帳單(國泰)中不存在的資料', rows: result.txtOnly, hideZero: false, suffix: 'txt' },
+                { title: '【國泰EXCEL】代檢費對帳單(國泰)中存在，但申報對帳(診所)檔中不存在的資料', rows: result.excelOnly, hideZero: true, suffix: 'excel' }
+            ];
+            tables.forEach(t => {
+                const h2 = document.createElement('h2');
+                h2.textContent = t.title;
+                section.appendChild(h2);
+
+                const checkboxId = `batch-${group.code}-hide-${t.suffix}`;
+                const group0 = document.createElement('div');
+                group0.className = 'hide-zero-amount-checkbox-group';
+                group0.innerHTML = `<input type="checkbox" id="${checkboxId}"${t.hideZero ? ' checked' : ''}><label for="${checkboxId}">隱藏申報金額為 0 的資料<span class="hidden-count"></span></label>`;
+                section.appendChild(group0);
+
+                const table = document.createElement('table');
+                table.innerHTML = '<thead><tr><th class="hide-row-checkbox-cell">隱藏</th><th>原因</th><th>病歷號碼</th><th>病患姓名</th><th>身分證</th><th>生日</th><th>檢驗日期</th><th>申報金額</th></tr></thead><tbody></tbody>';
+                section.appendChild(table);
+
+                const checkbox = group0.querySelector('input');
+                const tbody = table.querySelector('tbody');
+                displayResults(t.rows, tbody, checkbox);
+                checkbox.addEventListener('change', () => toggleRowsVisibility(tbody, checkbox));
+            });
+            container.appendChild(section);
+        }
+
+        function printBatch() {
+            const pages = [...document.querySelectorAll('#batchResults .batch-clinic:not(.batch-error)')].map(section => ({
+                title: section.dataset.title,
+                rule: section.dataset.rule,
+                blocks: extractPrintBlocks(section)
+            }));
+            if (pages.length === 0) {
+                showMessageBox('沒有可列印的比對結果。');
+                return;
+            }
+            openPrintWindow(pages);
+        }
+
+        /** 切換「單一診所」與「批次比對」畫面。 */
+        function switchMode(mode) {
+            const batch = mode === 'batch';
+            document.getElementById('singlePanel').hidden = batch;
+            document.querySelector('.results-section').hidden = batch;
+            document.getElementById('batchPanel').hidden = !batch;
+            document.getElementById('batchResults').hidden = !batch || !batchState.hasResults;
+            document.getElementById('modeSingle').setAttribute('aria-selected', String(!batch));
+            document.getElementById('modeBatch').setAttribute('aria-selected', String(batch));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('modeSingle').addEventListener('click', () => switchMode('single'));
+            document.getElementById('modeBatch').addEventListener('click', () => switchMode('batch'));
+            document.getElementById('batchFiles').addEventListener('change', e => setBatchFiles(e.target.files));
+            document.getElementById('batchFolder').addEventListener('change', e => setBatchFiles(e.target.files));
+            document.getElementById('batchCompareBtn').addEventListener('click', () => runBatchCompare());
+            document.getElementById('batchPrintBtn').addEventListener('click', printBatch);
+            document.getElementById('batchUnhideBtn').addEventListener('click', () => unhideAllRows(document.getElementById('batchResults')));
         });

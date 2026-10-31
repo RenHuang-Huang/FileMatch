@@ -721,3 +721,113 @@
                 transform: none;
             }
         }
+
+        /* ===== 比對方式切換、批次比對 ===== */
+        [hidden] {
+            display: none !important; /* .input-section 等設了 display，需明確讓 hidden 生效 */
+        }
+        .mode-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            margin-bottom: 16px;
+        }
+        .container .mode-tabs button {
+            opacity: 1;
+            cursor: pointer;
+            box-shadow: none;
+            border-radius: 0;
+            padding: 10px 22px;
+            font-size: 15px;
+            background-color: #eef1f4;
+            color: #3d4650;
+            border: 1px solid #c9d0d7;
+        }
+        .container .mode-tabs button:first-child { border-radius: 8px 0 0 8px; }
+        .container .mode-tabs button:last-child { border-radius: 0 8px 8px 0; border-left: none; }
+        .container .mode-tabs button[aria-selected="true"] {
+            background-color: var(--c-primary);
+            border-color: var(--c-primary);
+            color: #fff;
+        }
+        .container .mode-tabs button:hover {
+            transform: none;
+            box-shadow: none;
+        }
+        .container .mode-tabs button[aria-selected="false"]:hover {
+            background-color: #e2e7ec;
+        }
+        .batch-intro, .batch-summary {
+            color: #4a5560;
+            font-size: 0.95rem;
+            margin: 0;
+        }
+        .batch-summary {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        table.batch-group-table, table.batch-overview-table {
+            min-width: 0;
+            margin-top: 6px;
+            font-size: 14px;
+        }
+        table.batch-group-table th, table.batch-group-table td,
+        table.batch-overview-table th, table.batch-overview-table td {
+            padding: 6px 10px;
+        }
+        table.batch-group-table tr.batch-not-ready td {
+            color: #8a2b2b;
+            background-color: #fbebeb;
+        }
+        table.batch-group-table tr.batch-warn td {
+            background-color: #f9eeda;
+        }
+        .batch-overview {
+            margin-bottom: 24px;
+        }
+        .container h2.batch-overview-title {
+            font-size: 1.2rem;
+        }
+        .batch-overview-table a {
+            color: var(--c-primary);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .batch-clinic {
+            border-top: 3px solid var(--c-heading);
+            padding-top: 14px;
+            margin-top: 36px;
+            scroll-margin-top: 12px;
+        }
+        .batch-clinic-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 4px 12px;
+            margin-bottom: 14px;
+        }
+        .batch-clinic-name {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--c-heading);
+        }
+        .batch-clinic.batch-error {
+            color: #8a2b2b;
+            font-weight: 600;
+        }
+        .batch-clinic table + h2 {
+            margin-top: 24px;
+        }
+        /* 批次的主要動作：與單一模式「開始比對」「列印結果」同色 */
+        #batchPanel .view-data-buttons button#batchCompareBtn {
+            background-color: var(--c-primary);
+        }
+        #batchPanel .view-data-buttons button#batchCompareBtn:hover:not(:disabled) {
+            background-color: var(--c-primary-hover);
+        }
+        #batchPanel .view-data-buttons button#batchPrintBtn {
+            background-color: var(--c-teal);
+        }
+        #batchPanel .view-data-buttons button#batchPrintBtn:hover:not(:disabled) {
+            background-color: var(--c-teal-hover);
+        }
