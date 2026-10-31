@@ -768,7 +768,8 @@
         function openPrintWindow(pages) {
             const printWindow = window.open('', '_blank');
             printWindow.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>比對結果列印</title>');
-            printWindow.document.write('<link rel="stylesheet" href="./css/index.css">');
+            // 列印視窗不載入外部 CSS：外部檔案若在列印當下還沒載好，表格會變成雙線框、表頭置中。
+            // 需要的樣式全部寫在這裡，列印結果不受載入時間影響
             printWindow.document.write('<style>');
             printWindow.document.write(`
                 /* 寬度固定為 A4 扣除左右邊界 (210mm - 10mm x 2)，字級依此寬度自動計算 */
@@ -778,9 +779,12 @@
                    直接寫在列印視窗 (畫面與列印都套用)，量字級時與實際列印的版面一致 */
                 h2 { font-size: 20px; justify-content: center; text-align: center; margin: 20px 0 10px; white-space: nowrap;
                      font-weight: normal; color: #000; }
-                table { min-width: 0; border-radius: 0; overflow: visible; box-shadow: none; font-size: 16px; }
-                table th, table td { padding: 0.4em 0.45em; white-space: nowrap; border: 1px solid #000; color: #000; }
-                table th { background-color: #f0f0f0; }
+                table { width: 100%; border-collapse: collapse; background: #fff; font-size: 16px; }
+                table th, table td { padding: 0.4em 0.45em; white-space: nowrap; border: 1px solid #000; color: #000;
+                                     text-align: left; font-variant-numeric: tabular-nums; }
+                table th { background-color: #f0f0f0; font-weight: 600; }
+                table td.amount-cell { text-align: right; }
+                tr.agency-fee-row td { background-color: #fff8e1; }
                 .result-block table tbody tr:nth-child(even) { background-color: #f8f9fa; }
                 /* 固定版面：內容過寬時不會撐開外層，才量得出真正是否超出 A4 */
                 .page-layout { width: 100%; table-layout: fixed; page-break-after: always; break-after: page; }
@@ -794,7 +798,7 @@
                 .result-block:last-child { page-break-after: auto; break-after: auto; }
                 tr { page-break-inside: avoid; break-inside: avoid; }
                 thead { display: table-header-group; } /* 跨頁時重複表頭 */
-                .no-match-message { display: table-cell !important; text-align: center; }
+                .no-match-message { text-align: center !important; font-style: italic; color: #666 !important; padding: 15px; }
                 @page { size: A4; margin: 12mm 10mm; }
             `);
             printWindow.document.write('</style>');
