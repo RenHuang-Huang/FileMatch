@@ -722,6 +722,13 @@
             }
         }
 
+        /* 國泰表下方的跨月提示 (畫面專用，列印時移除) */
+        .compare-hint {
+            color: #5f676e;
+            font-size: 0.875rem;
+            margin: -6px 0 8px;
+        }
+
         /* ===== 比對方式切換、批次比對 ===== */
         [hidden] {
             display: none !important; /* .input-section 等設了 display，需明確讓 hidden 生效 */
@@ -818,6 +825,47 @@
         .batch-clinic table + h2 {
             margin-top: 24px;
         }
+        /* 批次成健金額總表 */
+        .batch-health {
+            margin-bottom: 24px;
+        }
+        .batch-health-discount {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px 10px;
+            margin: 4px 0 6px;
+            font-size: 0.95rem;
+        }
+        .batch-health-discount label {
+            font-weight: 600;
+            color: var(--c-heading);
+        }
+        .batch-health-discount input {
+            width: 90px;
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            text-align: right;
+            background: #fff;
+        }
+        .batch-health-note {
+            color: #5f676e;
+            font-size: 0.85rem;
+        }
+        table.batch-health-table {
+            min-width: 0;
+            margin-top: 6px;
+            font-size: 14px;
+        }
+        table.batch-health-table th, table.batch-health-table td {
+            padding: 6px 10px;
+        }
+        table.batch-health-table tr.batch-health-total td {
+            font-weight: 700;
+            background-color: #eef1f4;
+        }
+
         /* 批次的主要動作：與單一模式「開始比對」「列印結果」同色 */
         #batchPanel .view-data-buttons button#batchCompareBtn {
             background-color: var(--c-primary);
@@ -825,9 +873,84 @@
         #batchPanel .view-data-buttons button#batchCompareBtn:hover:not(:disabled) {
             background-color: var(--c-primary-hover);
         }
-        #batchPanel .view-data-buttons button#batchPrintBtn {
+        #batchPanel .view-data-buttons button#batchPrintBtn,
+        #batchPanel .view-data-buttons button#batchHealthPrintBtn {
             background-color: var(--c-teal);
         }
-        #batchPanel .view-data-buttons button#batchPrintBtn:hover:not(:disabled) {
+        #batchPanel .view-data-buttons button#batchPrintBtn:hover:not(:disabled),
+        #batchPanel .view-data-buttons button#batchHealthPrintBtn:hover:not(:disabled) {
             background-color: var(--c-teal-hover);
         }
+
+        /* ===== 基礎重設 (取代原本的 Tailwind 執行時腳本；只保留本頁需要的部分) =====
+           放在檔案最後：原本 Tailwind 把重設插在所有樣式之後，維持相同的套用順序，畫面才會完全一樣 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            border-width: 0;
+            border-style: solid;
+            border-color: #e5e7eb;
+        }
+        html {
+            line-height: 1.5;
+            -webkit-text-size-adjust: 100%;
+        }
+        body {
+            margin: 0;
+            line-height: inherit;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-size: inherit;
+            font-weight: inherit;
+        }
+        h1, h2, h3, h4, h5, h6, p, hr, figure, blockquote, pre {
+            margin: 0;
+        }
+        a {
+            color: inherit;
+            text-decoration: inherit;
+        }
+        table {
+            text-indent: 0;
+            border-color: inherit;
+            border-collapse: collapse;
+        }
+        button, input, select, textarea {
+            font-family: inherit;
+            font-size: 100%;
+            font-weight: inherit;
+            line-height: inherit;
+            color: inherit;
+            margin: 0;
+            padding: 0;
+        }
+        button, [type="button"] {
+            -webkit-appearance: button;
+            background-image: none;
+        }
+        ::-webkit-file-upload-button {
+            -webkit-appearance: button;
+            font: inherit;
+        }
+        ::file-selector-button {
+            font: inherit;
+        }
+
+        /* 頁面用到的工具樣式 (原 Tailwind class) */
+        .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .font-bold { font-weight: 700; }
+        .text-center { text-align: center; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mt-8 { margin-top: 2rem; }
+        .w-full { width: 100%; }
+        .overflow-auto { overflow: auto; }
+        .flex-grow { flex-grow: 1; }
+        /* 原本 Tailwind 的 .container 會覆蓋上面的 max-width: 1200px，依螢幕寬度分段放寬；
+           保留相同行為，移除 Tailwind 後版面寬度不變 */
+        .container { max-width: none; }
+        @media (min-width: 640px)  { .container { max-width: 640px; } }
+        @media (min-width: 768px)  { .container { max-width: 768px; } }
+        @media (min-width: 1024px) { .container { max-width: 1024px; } }
+        @media (min-width: 1280px) { .container { max-width: 1280px; } }
+        @media (min-width: 1536px) { .container { max-width: 1536px; } }

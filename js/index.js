@@ -731,7 +731,7 @@
         function printResults() {
             openPrintWindow([{
                 title: clinicName,
-                rule: compareRuleLabel(),
+                subtitle: `比對條件: ${compareRuleLabel()}`,
                 blocks: extractPrintBlocks(document.querySelector('.results-section'))
             }]);
         }
@@ -763,7 +763,7 @@
         /**
          * 開列印視窗。每個 page 是一家診所：頁首 (診所名稱、比對條件、列印時間) 在該診所的每一頁重複，
          * 診所之間、表格之間都換頁。
-         * @param {Array<{title: string, rule: string, blocks: string[]}>} pages
+         * @param {Array<{title: string, subtitle: string, blocks: string[]}>} pages subtitle 例如「比對條件: 身分證 ＋ 申報金額」
          */
         function openPrintWindow(pages) {
             const printWindow = window.open('', '_blank');
@@ -785,6 +785,8 @@
                 table th { background-color: #f0f0f0; font-weight: 600; }
                 table td.amount-cell { text-align: right; }
                 tr.agency-fee-row td { background-color: #fff8e1; }
+                tr.batch-health-total td { font-weight: 700; background-color: #f0f0f0; }
+                .result-block:first-child > table:first-child { margin-top: 16px; }
                 .result-block table tbody tr:nth-child(even) { background-color: #f8f9fa; }
                 /* 固定版面：內容過寬時不會撐開外層，才量得出真正是否超出 A4 */
                 .page-layout { width: 100%; table-layout: fixed; page-break-after: always; break-after: page; }
@@ -810,7 +812,7 @@
                 const titleHtml = page.title ? `<div class="clinic-title">${escapeHtml(page.title)}</div>` : '';
                 printWindow.document.write(`
                     <table class="page-layout">
-                        <thead><tr><th>${titleHtml}<div class="print-time">比對條件: ${escapeHtml(page.rule)}　列印時間: ${printTime}</div></th></tr></thead>
+                        <thead><tr><th>${titleHtml}<div class="print-time">${escapeHtml(page.subtitle)}　列印時間: ${printTime}</div></th></tr></thead>
                         <tbody><tr><td>${page.blocks.join('')}</td></tr></tbody>
                     </table>`);
             });
@@ -1115,6 +1117,24 @@
         /**
          * 更新計算模態視窗中所有金額計算結果的顯示。
          */
+        /**
+         * 成健金額計算 (單一的計算視窗與批次總表共用)。
+         * 成健 = 分類 A3 且健卡序號 IC 開頭；非成健 = 申報總額 - 成健；預扣額 = 非成健 × 打折成數。
+         * @param {Array<Object>} txtRecords - 診所 TXT 記錄。
+         * @param {number} discountPercentage - 打折的成數 (%)。
+         */
+        function calcHealthAmounts(txtRecords, discountPercentage) {
+            const total = txtRecords.reduce((sum, r) => sum + (r.amount || 0), 0);
+            const filtered = txtRecords
+                .filter(r => r.category && r.category.trim().toUpperCase() === 'A3'
+                    && r.healthCardSerial && r.healthCardSerial.trim().toUpperCase().startsWith('IC'))
+                .reduce((sum, r) => sum + (r.amount || 0), 0);
+            const nonFiltered = total - filtered;
+            const discount = parseFloat(discountPercentage) / 100;
+            const deduction = nonFiltered * (isNaN(discount) ? 0 : discount);
+            return { total, filtered, nonFiltered, deduction };
+        }
+
         function updateAllCalculationsForCalcModal() {
             const calcTotalDeclaredAmountSpan = document.getElementById('calcTotalDeclaredAmount');
             const calcFilteredAmountSpan = document.getElementById('calcFilteredAmount');
@@ -1122,28 +1142,11 @@
             const calcDeductionAmountSpan = document.getElementById('calcDeductionAmount');
             const calcDiscountPercentageInput = document.getElementById('calcDiscountPercentage');
 
-            // 申報總額：顯示未經過篩選後資料的金額總和。
-            // calcTotalDeclaredAmount 已經是所有 TXT 檔案資料的總金額 (未篩選的總和)。
-            calcTotalDeclaredAmountSpan.textContent = calcTotalDeclaredAmount.toLocaleString();
-
-            // 成健金額：顯示經過篩選條件篩選後資料的金額欄位總和。
-            // 篩選條件：「分類」欄位篩選為「A3」。「健卡序號」欄位篩選為以「IC」開頭的序號。
-            const filteredRecords = parsedTxtRecords.filter(record => {
-                const isCategoryA3 = record.category && record.category.trim().toUpperCase() === 'A3';
-                const isHealthCardSerialIC = record.healthCardSerial && record.healthCardSerial.trim().toUpperCase().startsWith('IC');
-                return isCategoryA3 && isHealthCardSerialIC;
-            });
-            const currentFilteredAmount = filteredRecords.reduce((sum, record) => sum + (record.amount || 0), 0);
-            calcFilteredAmountSpan.textContent = currentFilteredAmount.toLocaleString();
-
-            // 非成健金額：計算方式為「申報總額」減去「成健金額」。
-            const nonFilteredAmount = calcTotalDeclaredAmount - currentFilteredAmount;
-            calcNonFilteredAmountSpan.textContent = nonFilteredAmount.toLocaleString();
-
-            // 預扣額：計算方式為「非成健金額」乘以可調整的「打折的成數 (%)」。
-            const discount = parseFloat(calcDiscountPercentageInput.value) / 100;
-            const deductionAmount = nonFilteredAmount * (isNaN(discount) ? 0 : discount);
-            calcDeductionAmountSpan.textContent = deductionAmount.toLocaleString();
+            const amounts = calcHealthAmounts(parsedTxtRecords, calcDiscountPercentageInput.value);
+            calcTotalDeclaredAmountSpan.textContent = amounts.total.toLocaleString();
+            calcFilteredAmountSpan.textContent = amounts.filtered.toLocaleString();
+            calcNonFilteredAmountSpan.textContent = amounts.nonFiltered.toLocaleString();
+            calcDeductionAmountSpan.textContent = amounts.deduction.toLocaleString();
         }
 
         // --- TXT Raw Data Modal Functions ---
@@ -1437,7 +1440,10 @@
         // 依檔名開頭的數字當診所代碼配對：008-1.txt、008-01.txt、011l.txt、66-1.txt (補零為 066)、
         // 008院所申報暨代檢費對帳單B.xls 都歸到同一家；同一家的多個 TXT / Excel 合併比對。
 
-        const batchState = { files: [], groups: [], hasResults: false, runId: 0 };
+        const batchState = { files: [], groups: [], hasResults: false, runId: 0, rows: [] };
+
+        // 國泰表下方的畫面提示 (不列印)。依 2–8 月正式檔，國泰有、診所沒有的資料中約 10.8% 出現在上個月的診所檔
+        const CATHAY_ONLY_HINT = '提示：國泰有、診所沒有的資料，約一成是上個月診所已申報、本月才出現在國泰對帳單，可先查上月的申報檔。';
 
         /** 檔名開頭的數字 → 3 碼診所代碼；沒有數字開頭回傳 null。 */
         function clinicCodeOf(fileName) {
@@ -1528,7 +1534,9 @@
             results.innerHTML = '';
             results.hidden = true;
             document.getElementById('batchPrintBtn').disabled = true;
+            document.getElementById('batchHealthPrintBtn').disabled = true;
             document.getElementById('batchUnhideBtn').disabled = true;
+            batchState.rows = [];
         }
 
         /** 依序比對每一家可比對的診所，結果逐家顯示。 */
@@ -1565,7 +1573,7 @@
                     excelContents.forEach(content => excelRecords.push(...parseExcelData(content)));
                     const result = computeComparison(txtRecords, excelRecords);
                     renderBatchClinic(results, group, name, txtRecords.length, excelRecords.length, result);
-                    rows.push({ group, name, txtCount: txtRecords.length, excelCount: excelRecords.length, result });
+                    rows.push({ group, name, txtCount: txtRecords.length, excelCount: excelRecords.length, result, txtRecords });
                 } catch (error) {
                     clinicName = savedClinicName;
                     console.error(`批次比對 ${group.code} 失敗:`, error);
@@ -1580,6 +1588,11 @@
             if (runId !== batchState.runId) return;
 
             renderBatchOverview(overview, rows);
+            batchState.rows = rows;
+            const health = document.createElement('div');
+            health.className = 'batch-health';
+            overview.after(health);
+            renderBatchHealth(health);
             const target = document.getElementById('batchResults');
             target.replaceChildren(...results.childNodes);
             target.hidden = false;
@@ -1587,6 +1600,7 @@
             batchState.hasResults = true;
             compareBtn.disabled = false;
             document.getElementById('batchPrintBtn').disabled = !rows.some(r => !r.error);
+            document.getElementById('batchHealthPrintBtn').disabled = !rows.some(r => !r.error);
             document.getElementById('batchUnhideBtn').disabled = false;
             const failedCount = rows.filter(r => r.error).length;
             showMessageBox(`批次比對完成：${rows.length - failedCount} 家完成` + (failedCount ? `，${failedCount} 家失敗` : '') + '。');
@@ -1645,6 +1659,12 @@
                 const h2 = document.createElement('h2');
                 h2.textContent = t.title;
                 section.appendChild(h2);
+                if (t.suffix === 'excel') {
+                    const hint = document.createElement('p');
+                    hint.className = 'compare-hint screen-only';
+                    hint.textContent = CATHAY_ONLY_HINT;
+                    section.appendChild(hint);
+                }
 
                 const checkboxId = `batch-${group.code}-hide-${t.suffix}`;
                 const group0 = document.createElement('div');
@@ -1664,10 +1684,66 @@
             container.appendChild(section);
         }
 
+        /** 批次的打折成數，預設 15%，與單一診所的計算視窗相同。 */
+        let batchDiscountPercentage = '15';
+
+        function batchHealthRows() {
+            return batchState.rows.filter(r => !r.error).map(r => ({
+                code: r.group.code,
+                name: r.name || '（未取得名稱）',
+                ...calcHealthAmounts(r.txtRecords, batchDiscountPercentage)
+            }));
+        }
+
+        /** 成健金額總表的表格 HTML (畫面與列印共用)。 */
+        function batchHealthTableHtml() {
+            const rows = batchHealthRows();
+            const sum = key => rows.reduce((s, r) => s + r[key], 0);
+            const money = v => v.toLocaleString();
+            const body = rows.map(r => `<tr><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td>`
+                + ['total', 'filtered', 'nonFiltered', 'deduction'].map(k => `<td class="amount-cell">${money(r[k])}</td>`).join('') + '</tr>').join('');
+            const totalRow = rows.length > 1
+                ? `<tr class="batch-health-total"><td colspan="2">合計（${rows.length} 家）</td>`
+                    + ['total', 'filtered', 'nonFiltered', 'deduction'].map(k => `<td class="amount-cell">${money(sum(k))}</td>`).join('') + '</tr>'
+                : '';
+            return `<table class="batch-health-table"><thead><tr><th>代碼</th><th>診所</th><th>申報總額</th><th>成健金額</th><th>非成健金額</th><th>預扣額</th></tr></thead><tbody>${body}${totalRow}</tbody></table>`;
+        }
+
+        function renderBatchHealth(container) {
+            container.innerHTML = `
+                <h2 class="batch-overview-title">成健金額總表</h2>
+                <div class="batch-health-discount">
+                    <label for="batchDiscount">打折的成數 (%)</label>
+                    <input type="number" id="batchDiscount" min="0" max="100" step="0.01">
+                    <span class="batch-health-note">成健＝分類 A3 且健卡序號 IC 開頭；預扣額＝非成健金額 × 打折成數</span>
+                </div>
+                <div class="batch-health-table-wrap"></div>`;
+            const input = container.querySelector('#batchDiscount');
+            const wrap = container.querySelector('.batch-health-table-wrap');
+            input.value = batchDiscountPercentage;
+            wrap.innerHTML = batchHealthTableHtml();
+            input.addEventListener('input', () => {
+                batchDiscountPercentage = input.value;
+                wrap.innerHTML = batchHealthTableHtml();
+            });
+        }
+
+        function printBatchHealth() {
+            if (!batchState.rows.some(r => !r.error)) {
+                showMessageBox('沒有可列印的成健金額。');
+                return;
+            }
+            openPrintWindow([{
+                title: '成健金額總表',
+                subtitle: `打折的成數: ${batchDiscountPercentage}%`,
+                blocks: [`<div class="result-block">${batchHealthTableHtml()}</div>`]
+            }]);
+        }
+
         function printBatch() {
             const pages = [...document.querySelectorAll('#batchResults .batch-clinic:not(.batch-error)')].map(section => ({
                 title: section.dataset.title,
-                rule: section.dataset.rule,
+                subtitle: `比對條件: ${section.dataset.rule}`,
                 blocks: extractPrintBlocks(section)
             }));
             if (pages.length === 0) {
@@ -1695,5 +1771,6 @@
             document.getElementById('batchFolder').addEventListener('change', e => setBatchFiles(e.target.files));
             document.getElementById('batchCompareBtn').addEventListener('click', () => runBatchCompare());
             document.getElementById('batchPrintBtn').addEventListener('click', printBatch);
+            document.getElementById('batchHealthPrintBtn').addEventListener('click', printBatchHealth);
             document.getElementById('batchUnhideBtn').addEventListener('click', () => unhideAllRows(document.getElementById('batchResults')));
         });
