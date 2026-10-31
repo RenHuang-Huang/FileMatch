@@ -774,16 +774,21 @@
                 /* 寬度固定為 A4 扣除左右邊界 (210mm - 10mm x 2)，字級依此寬度自動計算 */
                 body { display: block; background: #fff; padding: 0; margin: 0; min-height: 0; width: 190mm;
                        font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif; }
-                h2 { font-size: 20px; justify-content: center; text-align: center; margin: 6px 0 10px; white-space: nowrap; }
+                /* 外觀沿用原版列印：黑色框線與文字、表頭 #f0f0f0、偶數列淺灰、標題一般粗細。
+                   直接寫在列印視窗 (畫面與列印都套用)，量字級時與實際列印的版面一致 */
+                h2 { font-size: 20px; justify-content: center; text-align: center; margin: 20px 0 10px; white-space: nowrap;
+                     font-weight: normal; color: #000; }
                 table { min-width: 0; border-radius: 0; overflow: visible; box-shadow: none; font-size: 16px; }
-                table th, table td { padding: 0.4em 0.45em; white-space: nowrap; }
+                table th, table td { padding: 0.4em 0.45em; white-space: nowrap; border: 1px solid #000; color: #000; }
+                table th { background-color: #f0f0f0; }
+                .result-block table tbody tr:nth-child(even) { background-color: #f8f9fa; }
                 /* 固定版面：內容過寬時不會撐開外層，才量得出真正是否超出 A4 */
                 .page-layout { width: 100%; table-layout: fixed; page-break-after: always; break-after: page; }
                 .page-layout:last-of-type { page-break-after: auto; break-after: auto; }
                 .page-layout, .page-layout > thead > tr > th, .page-layout > tbody > tr > td {
                     border: none; padding: 0; background: none; box-shadow: none; margin: 0; }
                 .clinic-title { text-align: center; font-size: 26px; font-weight: bold; margin: 0;
-                                padding: 4px 0; border-bottom: 1px solid #999; color: #000; }
+                                padding: 4px 0; border-bottom: 1px solid #ccc; color: #2c3e50; }
                 .print-time { text-align: right; font-size: 13px; color: #555; font-weight: normal; padding: 2px 0 8px; }
                 .result-block { page-break-after: always; break-after: page; }
                 .result-block:last-child { page-break-after: auto; break-after: auto; }
