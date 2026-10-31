@@ -632,7 +632,10 @@
                 row.insertCell().textContent = record.birthDate;
                 row.insertCell().textContent = record.inspectionDate;
                 const amountCell = row.insertCell();
-                amountCell.textContent = record.amount.toLocaleString();
+                // 申報金額為 0 但有代檢費的資料，沿用原本的「申報金額: 0 元」顯示方式 (只改顯示文字，不改資料)
+                amountCell.textContent = record.alwaysShow
+                    ? `申報金額: ${record.amount.toLocaleString()} 元`
+                    : record.amount.toLocaleString();
                 amountCell.classList.add('amount-cell');
 
                 // 金額為 0 才受「隱藏金額為 0」控制；alwaysShow (有代檢費) 的資料一律顯示
