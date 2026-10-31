@@ -21,7 +21,12 @@
 <body>
     <div class="container">
         <h1>文件資料比對工具</h1>
-        <p class="compare-rule">比對條件：身分證 ＋ 檢驗日期 ＋ 申報金額</p>
+        <p class="compare-rule">比對條件：<span id="compareRuleText">身分證 ＋ 申報金額</span></p>
+        <div class="compare-options">
+            <input type="checkbox" id="compareDateToggle">
+            <label for="compareDateToggle">比對就醫日期</label>
+            <span class="compare-options-hint">（診所 TXT 與國泰 Excel 的檢驗日期需相同）</span>
+        </div>
 
         <div class="input-section">
             <div class="file-input-group">

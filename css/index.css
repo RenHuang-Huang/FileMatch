@@ -46,7 +46,30 @@
             text-align: center;
             color: #6c757d;
             font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+        .compare-options {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px 6px;
             margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        .compare-options input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .compare-options label {
+            font-weight: 600;
+            color: var(--c-heading);
+            cursor: pointer;
+        }
+        .compare-options-hint {
+            color: #6c757d;
+            font-size: 0.85rem;
         }
         .container h2 {
             color: #2c3e50;
@@ -452,6 +475,7 @@
                導致 Ctrl+P 印出空白頁；改為只隱藏輸入區與標題 */
             .container > h1,
             .compare-rule,
+            .compare-options,
             .input-section,
             .message-box,
             .screen-only {

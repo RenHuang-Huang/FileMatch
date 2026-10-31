@@ -337,6 +337,39 @@
             return records;
         }
 
+        // --- 比對設定：是否比對就醫日期 (存在 localStorage，預設不比對) ---
+        const COMPARE_DATE_STORAGE_KEY = 'fileMatch.compareDate';
+
+        function loadCompareDateSetting() {
+            try {
+                return localStorage.getItem(COMPARE_DATE_STORAGE_KEY) === 'true';
+            } catch (e) {
+                return false; // 無痕模式或封鎖儲存時，使用預設值
+            }
+        }
+
+        function saveCompareDateSetting(enabled) {
+            try {
+                localStorage.setItem(COMPARE_DATE_STORAGE_KEY, String(enabled));
+            } catch (e) {
+                console.warn('無法儲存比對設定:', e);
+            }
+        }
+
+        function isCompareDateEnabled() {
+            const toggle = document.getElementById('compareDateToggle');
+            return toggle ? toggle.checked : loadCompareDateSetting();
+        }
+
+        function compareRuleLabel() {
+            return isCompareDateEnabled() ? '身分證 ＋ 檢驗日期 ＋ 申報金額' : '身分證 ＋ 申報金額';
+        }
+
+        function updateCompareRuleText() {
+            const el = document.getElementById('compareRuleText');
+            if (el) el.textContent = compareRuleLabel();
+        }
+
         /**
          * 執行兩個資料集之間的比對。
          * 找出在一個檔案中存在，但在另一個檔案中不存在的記錄。
@@ -346,12 +379,15 @@
         function performComparison(txtRecords, excelRecords) {
             const txtOnly = [];
             const excelOnly = [];
+            const compareDate = isCompareDateEnabled();
 
             // 統一兩邊的欄位，比對與顯示都用同一個結構
-            // 檢驗日期優先用正規化後的 key，無法解析時退回原始字串比對
+            // 檢驗日期優先用正規化後的 key，無法解析時退回原始字串比對；
+            // 未勾選「比對就醫日期」時日期一律視為相同，退回「身分證 + 金額」比對
+            const dateOf = rec => compareDate ? (rec.inspectionDateKey || rec.inspectionDate) : '';
             const toCompare = (rec, source) => source === 'txt'
-                ? { id: rec.idNumber, date: rec.inspectionDateKey || rec.inspectionDate, amount: rec.amount, rec }
-                : { id: rec.idCard, date: rec.inspectionDateKey || rec.inspectionDate, amount: rec.declaredAmount, rec };
+                ? { id: rec.idNumber, date: dateOf(rec), amount: rec.amount, rec }
+                : { id: rec.idCard, date: dateOf(rec), amount: rec.declaredAmount, rec };
             const txtItems = txtRecords.map(r => toCompare(r, 'txt'));
             const excelItems = excelRecords.map(r => toCompare(r, 'excel'));
             const keyOf = item => `${item.id}|${item.date}|${item.amount}`;
@@ -435,7 +471,7 @@
             updateHiddenCounts();
 
             if (txtOnly.length === 0 && excelOnly.length === 0) {
-                showMessageBox('比對完成！兩份文件所有身分證、檢驗日期和申報金額的資料均匹配。');
+                showMessageBox(`比對完成！兩份文件所有${compareRuleLabel().replace(/ ＋ /g, '、')}的資料均匹配。`);
             } else if (txtOnly.length > 0 || excelOnly.length > 0) {
                 showMessageBox('比對完成！請查看下方表格，找出未匹配的資料。');
             }
@@ -690,7 +726,7 @@
             const titleHtml = clinicName ? `<div class="clinic-title">${escapeHtml(clinicName)}</div>` : '';
             printWindow.document.write(`
                 <table class="page-layout">
-                    <thead><tr><th>${titleHtml}<div class="print-time">列印時間: ${printTime}</div></th></tr></thead>
+                    <thead><tr><th>${titleHtml}<div class="print-time">比對條件: ${compareRuleLabel()}　列印時間: ${printTime}</div></th></tr></thead>
                     <tbody><tr><td>${blocks.join('')}</td></tr></tbody>
                 </table>`);
             printWindow.document.write('</body></html>');
@@ -1087,6 +1123,19 @@
             const closeTxtRawModalBtn = document.getElementById('closeTxtRawModalBtn');
             const exportTxtRawExcelBtn = document.getElementById('exportTxtRawExcelBtn'); // 新增匯出按鈕
 
+            // 比對就醫日期開關：載入上次的設定；變更時儲存，已有比對結果則立即重新比對
+            const compareDateToggle = document.getElementById('compareDateToggle');
+            compareDateToggle.checked = loadCompareDateSetting();
+            updateCompareRuleText();
+            compareDateToggle.addEventListener('change', () => {
+                saveCompareDateSetting(compareDateToggle.checked);
+                updateCompareRuleText();
+                // 「列印結果」只在比對完成後啟用、清除結果時停用，用它判斷畫面上是否有有效結果
+                const hasResults = !printResultsBtn.disabled && parsedTxtRecords.length > 0 && parsedExcelRecords.length > 0;
+                if (hasResults) {
+                    performComparison(parsedTxtRecords, parsedExcelRecords);
+                }
+            });
 
             // 事件監聽器
             compareBtn.addEventListener('click', compareFiles);
