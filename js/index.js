@@ -625,7 +625,18 @@
                 checkboxCell.appendChild(label); // 將 label 添加到 td 中
 
 
-                row.insertCell().textContent = record.reason;
+                // 原因欄：括號內的對方數值不拆行 (例如「金額不符」換行後接「（國泰 650）」)，列印字放大後仍好讀
+                const reasonCell = row.insertCell();
+                record.reason.split(/(（[^）]*）|代檢費 \d+)/).filter(Boolean).forEach(part => {
+                    if (part.startsWith('（') || part.startsWith('代檢費')) {
+                        const detail = document.createElement('span');
+                        detail.className = 'reason-detail';
+                        detail.textContent = part;
+                        reasonCell.appendChild(detail);
+                    } else {
+                        reasonCell.appendChild(document.createTextNode(part));
+                    }
+                });
                 row.insertCell().textContent = record.medicalRecordId;
                 row.insertCell().textContent = record.name;
                 row.insertCell().textContent = record.idCard;
@@ -719,14 +730,14 @@
             printWindow.document.write(`
                 body { display: block; background: #fff; padding: 0; margin: 0; min-height: 0;
                        font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif; }
-                h2 { font-size: 15px; justify-content: center; text-align: center; margin: 4px 0 8px; }
-                table { min-width: 0; border-radius: 0; overflow: visible; box-shadow: none; font-size: 12px; }
-                table th, table td { padding: 5px 6px; }
+                h2 { font-size: 19px; justify-content: center; text-align: center; margin: 6px 0 10px; }
+                table { min-width: 0; border-radius: 0; overflow: visible; box-shadow: none; font-size: 17px; }
+                table th, table td { padding: 7px 8px; }
                 .page-layout, .page-layout > thead > tr > th, .page-layout > tbody > tr > td {
                     border: none; padding: 0; background: none; box-shadow: none; margin: 0; }
-                .clinic-title { text-align: center; font-size: 20px; font-weight: bold; margin: 0;
+                .clinic-title { text-align: center; font-size: 26px; font-weight: bold; margin: 0;
                                 padding: 4px 0; border-bottom: 1px solid #999; color: #000; }
-                .print-time { text-align: right; font-size: 11px; color: #555; font-weight: normal; padding: 2px 0 8px; }
+                .print-time { text-align: right; font-size: 13px; color: #555; font-weight: normal; padding: 2px 0 8px; }
                 .result-block { page-break-after: always; break-after: page; }
                 .result-block:last-child { page-break-after: auto; break-after: auto; }
                 tr { page-break-inside: avoid; break-inside: avoid; }

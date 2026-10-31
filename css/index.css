@@ -463,6 +463,7 @@
         table td.amount-cell {
             text-align: right;
             font-variant-numeric: tabular-nums;
+            white-space: nowrap; /* 「申報金額: 0 元」不拆行 */
         }
         /* 申報為 0 但有代檢費的資料，標示提醒 */
         tr.agency-fee-row td {
@@ -719,4 +720,9 @@
                 transition: none;
                 transform: none;
             }
+        }
+
+        /* 原因欄括號內的對方數值不拆行 */
+        .reason-detail {
+            white-space: nowrap;
         }
